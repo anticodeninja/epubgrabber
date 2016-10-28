@@ -82,6 +82,7 @@ function deletePage(id) {
         chrome.storage.local.set({savedItems: savedItems}, function(){
             renderTable();
         });
+        chrome.storage.local.remove("savedItem" + id);
     }
 }
 
@@ -105,7 +106,7 @@ function exportEpub() {
 
     chrome.storage.local.get(exportKeyList, function (data) {
         let epubFile = new JSZip();
-        epubFile.file("manifest", "application/epub+zip");
+        epubFile.file("mimetype", "application/epub+zip");
 
         let metaFolder = epubFile.folder("META-INF");
         metaFolder.file("container.xml", getContainerContent());
@@ -162,7 +163,6 @@ function exportEpub() {
         }).catch(function(err){
             console.log(err);
         });
-        console.log(data);
     });
 }
 

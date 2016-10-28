@@ -36,14 +36,14 @@ function isValidAttr(name, attr) {
     if (name == "a") {
         if (attr != "href" && attr != "title" && attr != "rel") {
             if (attr != "name") {
-                console.log("Ignored", nodeName, attr);
+                console.log("Ignored", name, attr);
             }
             return false;
         }
     } else if (name == "img") {
         if (attr != "src" && attr != "alt") {
             if (true) {
-                console.log("Ignored", nodeName, attr);
+                console.log("Ignored", name, attr);
             }
             return false;
         }
@@ -81,6 +81,7 @@ function preparePage(source, params) {
             
             result += "<" + nodeName;
             let attributes = children[i].attributes;
+            let attributesName = [];
             for (let j = 0; j < attributes.length; j++) {
                 let attrName = attributes[j].nodeName.toLowerCase();
                 let attrValue = attributes[j].nodeValue;
@@ -91,10 +92,21 @@ function preparePage(source, params) {
 
                 if (nodeName == "img" && attrName == "src") {
                     result += " " + attrName + "=\"" + params.replaceImage(attrValue) + "\"";
+                } else if (nodeName == "a" && attrName == "href") {
+                    result += " " + attrName + "=\"" + attrValue.replace(/&/g, '&amp;') + "\"";
                 } else if (attrValue) {
                     result += " " + attrName + "=\"" + attrValue + "\"";
                 }
+
+                attributesName.push(attrName);
             }
+
+            if (nodeName == "img") {
+                if (!attributesName.includes("alt")) {
+                    result += " alt=\"\"";
+                }
+            }
+            
             result += ">";
             result += preparePage(children[i], params);
             result += '</' + nodeName + '>';
@@ -251,7 +263,7 @@ function getCssContent() {
     result += "  font-size: medium;\n";
     result += "}\n";
     result += "img {\n";
-    result += "  width: 100%\n";
+    result += "  max-width: 100%\n";
     result += "}\n";
 
     return result;
