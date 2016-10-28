@@ -111,7 +111,7 @@ function getContainerContent() {
     result += "  <rootfiles>\n";
     result += "    <rootfile full-path=\"OEBPS/content.opf\" media-type=\"application/oebps-package+xml\"/>\n";
     result += "  </rootfiles>\n";
-    result += "</container>";
+    result += "</container>\n";
     return result;
 }
 
@@ -131,6 +131,7 @@ function getEbookContent(info) {
     result += "<manifest>\n";
     result += "  <item id=\"navigation\" media-type=\"application/x-dtbncx+xml\" href=\"navigation.ncx\"/>\n";
     result += "  <item id=\"toc\" media-type=\"application/xhtml+xml\" href=\"content/toc.xhtml\"/>\n";
+    result += "  <item id=\"css\" media-type=\"text/css\" href=\"css/ebook.css\"/>";
     for (let i = 0; i < info.chapters.length; ++i) {
         result += "  <item id=\"" + info.chapters[i].id + "\" media-type=\"application/xhtml+xml\"" +
             " href=\"content/" + info.chapters[i].file + "\"/>\n";
@@ -185,7 +186,7 @@ function getNavigationContent(info) {
         result += "    </navPoint>\n";
     }
     result += "  </navMap>\n";
-    result += "</ncx>";
+    result += "</ncx>\n";
     return result;
 }
 
@@ -196,10 +197,11 @@ function getTocPageContent(info) {
     result += "                      \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n";
     result += "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n";
     result += "  <head>\n";
-    result += "    <title></title>\n";
+    result += "    <title>Table of Contents</title>\n";
+    result += "    <link rel=\"stylesheet\" type=\"text/css\" href=\"../css/ebook.css\"/>";
     result += "  </head>\n";
     result += "  <body>\n";
-    result += "    <h2>Table Of Contents</h2>\n";
+    result += "    <h2>Table of Contents</h2>\n";
     result += "    <ol class=\"toc-items\">\n";
     for (let i = 0; i < info.chapters.length; ++i) {
         result += "      <li><a href=\"" + info.chapters[i].file + "\">" + info.chapters[i].title + "</a></li>\n";
@@ -219,6 +221,7 @@ function getPageContent(info, payload) {
     result += "  <head profile=\"http://dublincore.org/documents/dcmi-terms/\">\n";
     result += "    <meta http-equiv=\"Content-Type\" content=\"text/html;\" />\n";
     result += "    <title>" + info.title + "</title>\n";
+    result += "    <link rel=\"stylesheet\" type=\"text/css\" href=\"../css/ebook.css\"/>";
     result += "    <meta name=\"DCTERMS.title\" content=\"" + info.title + "\" />\n";
     result += "    <meta name=\"DCTERMS.language\" content=\"en\" scheme=\"DCTERMS.RFC4646\" />\n";
     result += "    <link rel=\"schema.DC\" href=\"http://purl.org/dc/elements/1.1/\" hreflang=\"en\" />\n";
@@ -239,5 +242,17 @@ function getPageContent(info, payload) {
     result += "  </body>\n";
     result += "</html>\n";
     
+    return result;
+}
+
+function getCssContent() {
+    result = "";
+    result += "body {\n";
+    result += "  font-size: medium;\n";
+    result += "}\n";
+    result += "img {\n";
+    result += "  width: 100%\n";
+    result += "}\n";
+
     return result;
 }

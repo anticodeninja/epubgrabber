@@ -155,6 +155,7 @@ function exportEpub() {
         oebpsFolder.file("content.opf", getEbookContent(info));
         oebpsFolder.file("navigation.ncx", getNavigationContent(info));
         contentFolder.file("toc.xhtml", getTocPageContent(info));
+        cssFolder.file("ebook.css", getCssContent());
 
         epubFile.generateAsync({type: "blob"}).then(function(content){
             saveAs(content, "test.epub");
