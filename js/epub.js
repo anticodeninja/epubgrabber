@@ -1,5 +1,6 @@
 function isValidNode(name) {
     if (name == "button") return false;
+    if (name == "iframe") return false;
     
     return true;
 }
@@ -67,6 +68,7 @@ function preparePage(source, params) {
             let textContent = children[i].nodeValue;
             textContent = textContent.replace(/</g, '&lt;');
             textContent = textContent.replace(/>/g, '&gt;');
+            textContent = textContent.replace(/&/g, '&amp;');
             result += textContent;
         }
         else if (children[i].nodeType == 8) {

@@ -6,6 +6,34 @@ let ctrSavedPages;
 let ctrSelectAll;
 let ctrExportEpub;
 
+function padLeft(value, length, char) {
+    value = "" + value;
+    while (value.length < length) {
+        value = char + value;
+    }
+    return value;
+}
+
+function getPublishDate() {
+    let date = new Date();
+    let result = "";
+    result += date.getFullYear() + "-";
+    result += padLeft(date.getMonth() + 1, 2, "0") + "-";
+    result += padLeft(date.getDate(), 2, "0") + " ";
+    return result;
+}
+
+function getBookId() {
+    let date = new Date();
+    let result = "EpubGrabber ";
+    result += date.getFullYear() + "-";
+    result += padLeft(date.getMonth() + 1, 2, "0") + "-";
+    result += padLeft(date.getDate(), 2, "0") + " ";
+    result += padLeft(date.getHours(), 2, "0") + ":";
+    result += padLeft(date.getMinutes(), 2, "0");
+    return result;
+}
+
 function getPageInfo(id) {
     for (let i = 0; i < savedItems.list.length; ++i) {
         if (savedItems.list[i].id == id) {
@@ -116,11 +144,12 @@ function exportEpub() {
         let contentFolder = oebpsFolder.folder("content");
         let imagesFolder = oebpsFolder.folder("images");
         let cssFolder = oebpsFolder.folder("css");
+        let epubHash = new jsSHA("SHA-1", "TEXT");
 
         let info = {
-            id: "Test",
-            title: "Test",
-            date: "2016-10-28",
+            id: undefined,
+            title: getBookId(),
+            date: getPublishDate(),
             chapters: [],
             images: []
         };
@@ -133,18 +162,30 @@ function exportEpub() {
             let temp = document.createElement("div");
             temp.innerHTML = entryHtml;
 
-            let imageCounter = 0;
+            let imagesIds = [];
             let doc = preparePage(temp, {
                 replaceImage: function(src){
-                    let imageId = "img_" + i +"_" + (imageCounter++);
-                    info.images.push({
-                        id: imageId,
-                        file: imageId + ".png"
-                    });
-                    imagesFolder.file(imageId + ".png", src.substr(src.indexOf(',') + 1), {base64: true});
+                    let imageData = src.substr(src.indexOf(',') + 1);
+                    let imageHash = new jsSHA("SHA-1", "TEXT");
+                    imageHash.update(imageData);
+                    let imageId = "img_" + i +"_" + imageHash.getHash("HEX");
+
+                    if (!imagesIds.includes(imageId))
+                    {
+                        imagesIds.push(imageId);
+                        
+                        info.images.push({
+                            id: imageId,
+                            file: imageId + ".png"
+                        });
+
+                        imagesFolder.file(imageId + ".png", imageData, {base64: true});
+                    }
+                    
                     return "../images/" + imageId + ".png";
                 }});
 
+            epubHash.update(entryInfo);
             contentFolder.file(chapterId + ".xhtml", getPageContent(entryInfo, doc));
             info.chapters.push({
                 id: chapterId,
@@ -152,6 +193,7 @@ function exportEpub() {
                 file: chapterId + ".xhtml"
             });
         }
+        info.id = epubHash.getHash("HEX");
 
         oebpsFolder.file("content.opf", getEbookContent(info));
         oebpsFolder.file("navigation.ncx", getNavigationContent(info));
@@ -159,7 +201,7 @@ function exportEpub() {
         cssFolder.file("ebook.css", getCssContent());
 
         epubFile.generateAsync({type: "blob"}).then(function(content){
-            saveAs(content, "test.epub");
+            saveAs(content, info.title.replace(/\s/g, "_") + ".epub");
         }).catch(function(err){
             console.log(err);
         });
