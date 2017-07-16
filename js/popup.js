@@ -1,18 +1,25 @@
 "use strict";
 
 document.addEventListener('DOMContentLoaded', function() {
-    const showSaved = document.getElementById('show_saved');
-    const saveToEpub = document.getElementById('save_to_epub');
+    const simplifyPage = document.getElementById('simplify_page');
+    const showStorage = document.getElementById('show_storage');
+    const saveToStorage = document.getElementById('save_to_storage');
 
-    showSaved.addEventListener('click', function() {
+    simplifyPage.addEventListener('click', function() {
+        chrome.runtime.sendMessage({
+            action: 'simplify_page'
+        });
+    });
+
+    showStorage.addEventListener('click', function() {
         chrome.tabs.create({
             url: 'html/main.html'
         });
     });
 
-    saveToEpub.addEventListener('click', function() {
+    saveToStorage.addEventListener('click', function() {
         chrome.runtime.sendMessage({
-            action: "save_to_epub"
+            action: 'save_to_storage'
         });
     });
 });

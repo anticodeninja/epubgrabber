@@ -120,17 +120,36 @@ function simplifyAndSave(files) {
             return image || blankGif;
         }});
 
-    chrome.runtime.sendMessage({
-        action: "save_page",
-        location: files[0].headers.location,
-        title: title,
-        html: html
+    chrome.storage.local.get("savedItems", function (data) {
+        let savedItems = data.savedItems || {
+            counter: 1,
+            list: []
+        };
+
+        let info = {
+            id: savedItems.counter,
+            title: title,
+            location: files[0].headers.location
+        }
+
+        savedItems.list.push(info);
+        savedItems.counter += 1;
+
+        let saveData = {}
+        saveData["savedItem" + info.id] = html;
+
+        chrome.storage.local.set({savedItems: savedItems}, function(){
+            console.log("info saved");
+        });
+        chrome.storage.local.set(saveData, function(){
+            console.log("data saved");
+        });
     });
 }
 
-function saveToEpub() {
-    chrome.tabs.getSelected(null, function(tab) {
-        chrome.pageCapture.saveAsMHTML({ tabId: tab.id }, function(data) {
+function saveToStorage() {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        chrome.pageCapture.saveAsMHTML({ tabId: tabs[0].id }, function(data) {
             parseMHTML(data, function(files){
                 simplifyAndSave(files);
             });
@@ -138,35 +157,40 @@ function saveToEpub() {
     });
 }
 
-chrome.runtime.onMessage.addListener(function(message, sender, callback) {
-    if (message.action == "save_to_epub") {
-	saveToEpub();
-    } else if (message.action == "save_page") {
-        chrome.storage.local.get("savedItems", function (data) {
-            let savedItems = data.savedItems || {
-                counter: 1,
-                list: []
-            };
+function simplifyPage() {
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        chrome.storage.sync.get('simplify_settings', function (data) {
+            var settings = data.simplify_settings,
+                i, blocks, re, script;
 
-            let info = {
-                id: savedItems.counter,
-                title: message.title,
-                location: message.location
+            for (i = 0; i < settings.sites.length; ++i) {
+                if (tabs[0].url.match(settings.sites[i].url)) {
+                    blocks = settings.sites[i].blocks;
+                    break;
+                }
             }
 
-            savedItems.list.push(info);
-            savedItems.counter += 1;
+            if (!blocks) { return; }
 
-            let saveData = {}
-            saveData["savedItem" + info.id] = message.html;
+            script = 'document.body.innerHTML = ';
+            for (i = 0; i < blocks.length; ++i) {
+                script += 'document.querySelector("';
+                script += blocks[i];
+                script += '").innerHTML + ';
+            }
+            script += '"";';
 
-            chrome.storage.local.set({savedItems: savedItems}, function(){
-                console.log("info saved");
-            });
-            chrome.storage.local.set(saveData, function(){
-                console.log("data saved");
+            chrome.tabs.executeScript(tabs[0].id, { code: script }, function(results) {
+                console.log(results);
             });
         });
-        console.log(message);
+    });
+}
+
+chrome.runtime.onMessage.addListener(function(message, sender, callback) {
+    if (message.action == "save_to_storage") {
+	saveToStorage();
+    } else if (message.action == 'simplify_page') {
+        simplifyPage();
     }
 });
