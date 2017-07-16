@@ -139,10 +139,11 @@ function simplifyAndSave(files) {
         saveData["savedItem" + info.id] = html;
 
         chrome.storage.local.set({savedItems: savedItems}, function(){
-            console.log("info saved");
-        });
-        chrome.storage.local.set(saveData, function(){
-            console.log("data saved");
+            chrome.storage.local.set(saveData, function(){
+                chrome.runtime.sendMessage({
+                    action: 'page_saved'
+                });
+            });
         });
     });
 }
@@ -181,7 +182,9 @@ function simplifyPage() {
             script += '"";';
 
             chrome.tabs.executeScript(tabs[0].id, { code: script }, function(results) {
-                console.log(results);
+                chrome.runtime.sendMessage({
+                    action: 'page_simplified'
+                });
             });
         });
     });

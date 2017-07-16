@@ -2,13 +2,15 @@
 <html>
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <link rel="stylesheet" type="text/css" href="/css/main.css">
     <title>EPub Grabber - Pages List</title>
   </head>
-  <body>
-    <div id="saved_pages">
+  <body class='main'>
+    <div id="saved-pages">
     </div>
-    <input id="select_all" type="button" value="Select All"/>
-    <input id="export_epub" type="button" value="Export EPub"/>
+    <a id="select-all" class="btn" href="#">Select All</a>
+    <a id="select-none" class="btn" href="#">Select None</a>
+    <a id="export-epub" class="btn" href="#">Export EPub</a>
     <script src="/js/jszip.min.js"></script>
     <script src="/js/filesaver.min.js"></script>
     <script src="/js/sha1.js"></script>

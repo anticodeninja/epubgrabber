@@ -1,10 +1,7 @@
 "use strict";
 
-let savedItems;
-
-let ctrSavedPages;
-let ctrSelectAll;
-let ctrExportEpub;
+let savedItems,
+    ctrSavedPages, ctrSelectAll, ctrSelectNone, ctrExportEpub;
 
 function padLeft(value, length, char) {
     value = "" + value;
@@ -54,27 +51,31 @@ function initialize() {
 }
 
 function renderTable() {
-    let output = "<table>";
+    let output = '<table>';
 
-    output += "<tr><th></th><th>Title</th><th>Location</th><th></th></tr>";
+    output += '<tr><th></th><th>Title</th><th>Location</th><th></th></tr>';
 
     for (let i = 0; i < savedItems.list.length; ++i) {
         let item = savedItems.list[i];
-        output += "<tr>";
-        output += "<td>" +
-            "<input class=\"export_page\" data-id=\"" + item.id + "\" type=\"checkbox\"/>" +
-            "</td>";
-        output += "<td>" + item.title + "</td>";
-        output += "<td><a href=\"" + item.location + "\">" + item.location + "</a></td>";
-        output += "<td>" +
-            "<input class=\"set_title\" data-id=\"" + item.id + "\" type=\"button\" value=\"Set Title\"/>" +
-            "<input class=\"preview\" data-id=\"" + item.id + "\" type=\"button\" value=\"Preview\"/>" +
-            "<input class=\"delete\" data-id=\"" + item.id + "\" type=\"button\" value=\"Delete\"/>" +
-            "</td>";
-        output += "</tr>";
+        output += '<tr>';
+        output += '<td>';
+        output += '<label class="chkbox">';
+        output += '<input class="export-page" data-id="' + item.id + '" type="checkbox"/>';
+        output += '<div class="chkbox-indicator-bg"></div>';
+        output += '<div class="chkbox-indicator"></div>';
+        output += '</label>';
+        output += '</td>';
+        output += '<td>' + item.title + '</td>';
+        output += '<td><a href="' + item.location + '">' + item.location + '</a></td>';
+        output += '<td>';
+        output += '<a class="btn set-title" data-id="' + item.id + '" href="#">Set Title</a>';
+        output += '<a class="btn preview" data-id="' + item.id + '" href="#">Preview</a>';
+        output += '<a class="btn delete" data-id="' + item.id + '" href="#">Delete</a>';
+        output += '</td>';
+        output += '</tr>';
     }
 
-    output += "</table>";
+    output += '</table>';
 
     ctrSavedPages.innerHTML = output;
 }
@@ -114,15 +115,15 @@ function deletePage(id) {
     }
 }
 
-function selectAll() {
-    let checkList = document.querySelectorAll("input.export_page");
+function selectAll(checked) {
+    let checkList = document.querySelectorAll("input.export-page");
     for (let i = 0; i < checkList.length; ++i) {
-        checkList[i].checked = true;
+        checkList[i].checked = checked;
     }
 }
 
 function exportEpub() {
-    let checkList = document.querySelectorAll("input.export_page");
+    let checkList = document.querySelectorAll("input.export-page");
     let exportIdList = [];
     let exportKeyList = [];
     for (let i = 0; i < checkList.length; ++i) {
@@ -209,27 +210,38 @@ function exportEpub() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    ctrSavedPages = document.getElementById("saved_pages");
-    ctrSelectAll = document.getElementById("select_all");
-    ctrExportEpub = document.getElementById("export_epub");
+    ctrSavedPages = document.getElementById('saved-pages'),
+    ctrSelectAll = document.getElementById('select-all'),
+    ctrSelectNone = document.getElementById('select-none')
+    ctrExportEpub = document.getElementById('export-epub');
 
-    ctrSavedPages.onclick = function(data) {
-        let target = data.target;
+    ctrSavedPages.onclick = function(event) {
+        let target = event.target;
 
-        if (target.className == "set_title") {
+        if (target.classList.contains('set-title')) {
+            event.preventDefault();
             updateTitle(target.dataset.id);
-        } else if (target.className == "preview") {
+        } else if (target.classList.contains('preview')) {
+            event.preventDefault();
             showPreview(target.dataset.id);
-        } else if (target.className == "delete") {
+        } else if (target.classList.contains('delete')) {
+            event.preventDefault();
             deletePage(target.dataset.id);
         }
     }
 
-    ctrSelectAll.onclick = function() {
-        selectAll();
+    ctrSelectAll.onclick = function(event) {
+        event.preventDefault();
+        selectAll(true);
     }
 
-    ctrExportEpub.onclick = function() {
+    ctrSelectNone.onclick = function(event) {
+        event.preventDefault();
+        selectAll(false);
+    }
+
+    ctrExportEpub.onclick = function(event) {
+        event.preventDefault();
         exportEpub();
     }
 

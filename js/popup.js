@@ -1,25 +1,66 @@
 "use strict";
 
-document.addEventListener('DOMContentLoaded', function() {
-    const simplifyPage = document.getElementById('simplify_page');
-    const showStorage = document.getElementById('show_storage');
-    const saveToStorage = document.getElementById('save_to_storage');
+let ctrButtonsBlock, ctrSimplifyPage, ctrShowStorage, ctrSaveToStorage,
+    ctrProgressBlock, ctrProgressText;
 
-    simplifyPage.addEventListener('click', function() {
+function setMessage(message, append) {
+    var height;
+
+    ctrButtonsBlock.style.display = message ? 'none' : 'block';
+    ctrProgressBlock.style.display = message ? 'block' : 'none';
+
+    if (message) {
+        if (append) {
+            message = ctrProgressText.innerText + message;
+        }
+        ctrProgressText.innerText = message;
+    }
+
+    height = (message ? ctrProgressBlock : ctrButtonsBlock).clientHeight;
+    document.body.style.height = height;
+    document.querySelector('html').style.height = height;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    ctrButtonsBlock = document.getElementById('buttons-block');
+    ctrSimplifyPage = document.getElementById('simplify-page');
+    ctrShowStorage = document.getElementById('show-storage');
+    ctrSaveToStorage = document.getElementById('save-to-storage');
+
+    ctrProgressBlock = document.getElementById('progress-block');
+    ctrProgressText = document.getElementById('progress-text');
+
+    ctrSimplifyPage.addEventListener('click', function(event) {
+        event.preventDefault();
         chrome.runtime.sendMessage({
             action: 'simplify_page'
         });
+        setMessage('Simplifying page...');
     });
 
-    showStorage.addEventListener('click', function() {
+    ctrShowStorage.addEventListener('click', function(e) {
+        event.preventDefault();
         chrome.tabs.create({
             url: 'html/main.html'
         });
     });
 
-    saveToStorage.addEventListener('click', function() {
+    ctrSaveToStorage.addEventListener('click', function(event) {
+        event.preventDefault();
         chrome.runtime.sendMessage({
             action: 'save_to_storage'
         });
+        setMessage('Saving page...');
     });
+
+    setMessage();
+});
+
+chrome.runtime.onMessage.addListener(function(message, sender, callback) {
+    if (message.action == 'page_saved' || message.action == 'page_simplified') {
+        setMessage('\nCompleted.', true);
+        setTimeout(function(){
+            setMessage();
+        }, 1000);
+    }
 });
