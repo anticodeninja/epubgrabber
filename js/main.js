@@ -48,7 +48,7 @@ function initialize() {
             counter: 1,
             list: []
         };
-        
+
         renderTable();
     });
 }
@@ -173,7 +173,7 @@ function exportEpub() {
                     if (!imagesIds.includes(imageId))
                     {
                         imagesIds.push(imageId);
-                        
+
                         info.images.push({
                             id: imageId,
                             file: imageId + ".png"
@@ -181,7 +181,7 @@ function exportEpub() {
 
                         imagesFolder.file(imageId + ".png", imageData, {base64: true});
                     }
-                    
+
                     return "../images/" + imageId + ".png";
                 }});
 
@@ -232,7 +232,6 @@ document.addEventListener('DOMContentLoaded', function() {
     ctrExportEpub.onclick = function() {
         exportEpub();
     }
-    
+
     initialize();
 });
-

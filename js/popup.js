@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
             url: 'html/main.html'
         });
     });
-    
+
     saveToEpub.addEventListener('click', function() {
         chrome.runtime.sendMessage({
             action: "save_to_epub"

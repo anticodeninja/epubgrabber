@@ -2,6 +2,7 @@
     "background": {
         "persistent": true,
         "scripts": [
+            "js/epub.js",
             "js/bg.js"
         ]
     },
@@ -10,13 +11,6 @@
         "default_title": "EpubGrabber",
         "default_popup": "html/popup.html"
     },
-    "content_scripts": [ {
-        "js": [
-            "js/page.js"
-        ],
-        "matches": [ "https://*/*", "http://*/*" ],
-        "run_at": "document_end"
-    } ],
     "content_security_policy": "script-src 'self'; object-src 'self'",
     "description": "Capture any page and save to ePub",
     "icons": {
@@ -31,8 +25,7 @@
         "<all_urls>",
         "activeTab",
         "storage",
-        "webRequest",
-        "webRequestBlocking",
+        "pageCapture",
         "unlimitedStorage"
     ],
     "version": "0.0.1"

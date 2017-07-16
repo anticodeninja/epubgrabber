@@ -1,18 +1,35 @@
-function isValidNode(name) {
-    if (name == "button") return false;
-    if (name == "iframe") return false;
-    
-    return true;
+"use strict";
+
+const KEEP_NODE = 1;
+const REMOVE_NODE = 2;
+const KEEP_CONTENT = 3;
+
+const NODE_TEXT = 3;
+const NODE_COMMENTS = 8;
+
+function calcNodeAction(name) {
+    if (name == "title") return REMOVE_NODE;
+    if (name == "meta") return REMOVE_NODE;
+    if (name == "style") return REMOVE_NODE;
+    if (name == "link") return REMOVE_NODE;
+    if (name == "script") return REMOVE_NODE;
+
+    if (name == "button") return KEEP_CONTENT;
+    if (name == "iframe") return REMOVE_NODE;
+
+    if (name == "font") return KEEP_CONTENT;
+
+    return KEEP_NODE;
 }
 
 function isValidAttr(name, attr) {
     if (attr == "id") return false;
     if (attr == "style") return false;
     if (attr == "class") return false;
-    
+
     if (attr == "contenteditable") return false;
     if (attr.startsWith("data-")) return false;
-    
+
     if (attr == "onclick") return false;
     if (attr == "onblur") return false;
     if (attr == "onchange") return false;
@@ -51,67 +68,93 @@ function isValidAttr(name, attr) {
     } else {
         console.log("Unhandled ", name);
     }
-    
+
     return true;
 }
 
-function preparePage(source, params) {
+function preparePage(source, params, parentContext) {
     if (source.nodeType !== 1) {
         return false;
     }
-    
+
     let children = source.childNodes;
     let result = "";
 
+    const context = {
+        level: parentContext ? parentContext.level + 1 : 0,
+        preserveWhitespaces: parentContext ? parentContext.preserveWhitespaces : false,
+        preserveAll: parentContext ? parentContext.preserveAll : false
+    };
+
     for (let i = 0; i < children.length; i++) {
-        if (children[i].nodeType == 3) {
+        if (children[i].nodeType == NODE_TEXT) {
             let textContent = children[i].nodeValue;
-            textContent = textContent.replace(/</g, '&lt;');
-            textContent = textContent.replace(/>/g, '&gt;');
-            textContent = textContent.replace(/&/g, '&amp;');
+            if (!context.preserveAll) {
+                textContent = textContent.replace(/</g, '&lt;');
+                textContent = textContent.replace(/>/g, '&gt;');
+                textContent = textContent.replace(/&/g, '&amp;');
+            }
+            if (!context.preserveWhitespaces) {
+                if (textContent.trim().length != 0) {
+                    textContent = textContent.replace(/^[\r\n]+|[\r\n]+$/g, '');
+                } else {
+                    textContent = '';
+                }
+            }
             result += textContent;
         }
-        else if (children[i].nodeType == 8) {
-            // Ignore it
+        else if (children[i].nodeType == NODE_COMMENTS) {
+            // Ignore comments
         }
         else {
             let nodeName = children[i].nodeName.toLowerCase();
+            let nodeAction = calcNodeAction(nodeName);
 
-            if (!isValidNode(nodeName)) {
-                continue; // Ignore it
-            }
-            
-            result += "<" + nodeName;
-            let attributes = children[i].attributes;
-            let attributesName = [];
-            for (let j = 0; j < attributes.length; j++) {
-                let attrName = attributes[j].nodeName.toLowerCase();
-                let attrValue = attributes[j].nodeValue;
-
-                if (!isValidAttr(nodeName, attrName)) {
-                    continue; // Ignore it
-                }
-
-                if (nodeName == "img" && attrName == "src") {
-                    result += " " + attrName + "=\"" + params.replaceImage(attrValue) + "\"";
-                } else if (nodeName == "a" && attrName == "href") {
-                    result += " " + attrName + "=\"" + attrValue.replace(/&/g, '&amp;') + "\"";
-                } else if (attrValue) {
-                    result += " " + attrName + "=\"" + attrValue + "\"";
-                }
-
-                attributesName.push(attrName);
+            if (nodeAction === REMOVE_NODE) {
+                continue;
             }
 
-            if (nodeName == "img") {
-                if (!attributesName.includes("alt")) {
-                    result += " alt=\"\"";
+            const content = preparePage(children[i], params, context);
+
+            if (nodeAction === KEEP_NODE) {
+                result += "<" + nodeName;
+                let attributes = children[i].attributes;
+                let attributesName = [];
+                for (let j = 0; j < attributes.length; j++) {
+                    let attrName = attributes[j].nodeName.toLowerCase();
+                    let attrValue = attributes[j].nodeValue;
+
+                    if (!isValidAttr(nodeName, attrName)) {
+                        continue; // Ignore it
+                    }
+
+                    if (nodeName == "img" && attrName == "src") {
+                        result += " " + attrName + "=\"" + params.replaceImage(attrValue) + "\"";
+                    } else if (nodeName == "a" && attrName == "href") {
+                        result += " " + attrName + "=\"" + attrValue.replace(/&/g, '&amp;') + "\"";
+                    } else if (attrValue) {
+                        result += " " + attrName + "=\"" + attrValue + "\"";
+                    }
+
+                    attributesName.push(attrName);
                 }
+
+                if (nodeName == "img") {
+                    if (!attributesName.includes("alt")) {
+                        result += " alt=\"\"";
+                    }
+                }
+
+                if (content.length > 0) {
+                    result += ">";
+                    result += content;
+                    result += '</' + nodeName + '>';
+                } else {
+                    result += "/>";
+                }
+            } else if (nodeAction === KEEP_CONTENT) {
+                result += content;
             }
-            
-            result += ">";
-            result += preparePage(children[i], params);
-            result += '</' + nodeName + '>';
         }
     }
 
@@ -169,7 +212,7 @@ function getEbookContent(info) {
 }
 
 function getNavigationContent(info) {
-    result = "";
+    let result = "";
     result += "<?xml version=\"1.0\"?>\n";
     result += "<!DOCTYPE ncx PUBLIC \"-//NISO//DTD ncx 2005-1//EN\"\n";
     result += "  \"http://www.daisy.org/z3986/2005/ncx-2005-1.dtd\">\n";
@@ -255,12 +298,12 @@ function getPageContent(info, payload) {
 
     result += "  </body>\n";
     result += "</html>\n";
-    
+
     return result;
 }
 
 function getCssContent() {
-    result = "";
+    let result = "";
     result += "body {\n";
     result += "  font-size: medium;\n";
     result += "}\n";
