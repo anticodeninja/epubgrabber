@@ -304,11 +304,18 @@ function getPageContent(info, payload) {
 
 function getCssContent() {
     let result = "";
+
     result += "body {\n";
     result += "  font-size: medium;\n";
     result += "}\n";
+
     result += "img {\n";
     result += "  max-width: 100%\n";
+    result += "}\n";
+
+    result += "code, pre {\n";
+    result += "  white-space: pre-wrap;\n";
+    result += "  font-size: 75%;\n";
     result += "}\n";
 
     return result;
