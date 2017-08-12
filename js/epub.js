@@ -72,6 +72,14 @@ function isValidAttr(name, attr) {
     return true;
 }
 
+function isContentObligatory(nodeName) {
+    if (nodeName == "a") return true;
+    if (nodeName == "ul") return true;
+    if (nodeName == "ol") return true;
+
+    return false;
+}
+
 function preparePage(source, params, parentContext) {
     if (source.nodeType !== 1) {
         return false;
@@ -145,7 +153,7 @@ function preparePage(source, params, parentContext) {
                     }
                 }
 
-                if (content.length > 0) {
+                if (content.length > 0 || isContentObligatory(nodeName)) {
                     result += ">";
                     result += content;
                     result += '</' + nodeName + '>';
