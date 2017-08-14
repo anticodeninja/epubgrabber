@@ -1,7 +1,7 @@
 "use strict";
 
 let savedItems,
-    ctrSavedPages, ctrSelectAll, ctrSelectNone, ctrExportEpub;
+    ctrSavedPages, ctrSelectAll, ctrSelectNone, ctrDeleteSelected, ctrExportEpub;
 
 function padLeft(value, length, char) {
     value = "" + value;
@@ -39,6 +39,40 @@ function getPageInfo(id) {
     }
 }
 
+function getSelected() {
+    const list = document.querySelectorAll("input.select-item"),
+          result = [];
+
+    for (let i = 0; i < list.length; ++i) {
+        if (list[i].checked) {
+            result.push(list[i].dataset.id);
+        }
+    }
+
+    return result;
+}
+
+function deleteItems(idList) {
+    let result = window.confirm("Are you sure?");
+    if (!result) return;
+
+    for (let i = 0; i < idList.length; ++i) {
+        chrome.storage.local.remove("savedItem" + idList[i]);
+    }
+
+    for (let i = 0; i < savedItems.list.length;) {
+        if (idList.some(function(x) { return x == savedItems.list[i].id})) {
+            savedItems.list.splice(i, 1);
+        } else {
+            i += 1;
+        }
+    }
+
+    chrome.storage.local.set({savedItems: savedItems}, function(){
+        renderTable();
+    });
+}
+
 function initialize() {
     chrome.storage.local.get("savedItems", function (data) {
         savedItems = data.savedItems || {
@@ -60,7 +94,7 @@ function renderTable() {
         output += '<tr>';
         output += '<td>';
         output += '<label class="chkbox">';
-        output += '<input class="export-page" data-id="' + item.id + '" type="checkbox"/>';
+        output += '<input class="select-item" data-id="' + item.id + '" type="checkbox"/>';
         output += '<div class="chkbox-indicator-bg"></div>';
         output += '<div class="chkbox-indicator"></div>';
         output += '</label>';
@@ -97,41 +131,25 @@ function showPreview(id) {
 }
 
 function deletePage(id) {
-    let entryIndex;
-    for (let i = 0; i < savedItems.list.length; ++i) {
-        if (savedItems.list[i].id == id) {
-            entryIndex = i;
-            break;
-        }
-    }
-
-    let result = window.confirm("Are you sure?");
-    if (result) {
-        savedItems.list.splice(entryIndex, 1);
-        chrome.storage.local.set({savedItems: savedItems}, function(){
-            renderTable();
-        });
-        chrome.storage.local.remove("savedItem" + id);
-    }
+    deleteItems([id]);
 }
 
 function selectAll(checked) {
-    let checkList = document.querySelectorAll("input.export-page");
+    let checkList = document.querySelectorAll("input.select-item");
     for (let i = 0; i < checkList.length; ++i) {
         checkList[i].checked = checked;
     }
 }
 
+function deleteSelected() {
+    deleteItems(getSelected());
+}
+
 function exportEpub() {
-    let checkList = document.querySelectorAll("input.export-page");
-    let exportIdList = [];
-    let exportKeyList = [];
-    for (let i = 0; i < checkList.length; ++i) {
-        if (checkList[i].checked) {
-            exportIdList.push(checkList[i].dataset.id);
-            exportKeyList.push("savedItem" + checkList[i].dataset.id);
-        }
-    }
+    const exportIdList = getSelected();
+    const exportKeyList = exportIdList.map(function(x) {
+        return "savedItem" + x;
+    });
 
     chrome.storage.local.get(exportKeyList, function (data) {
         let epubFile = new JSZip();
@@ -210,9 +228,10 @@ function exportEpub() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    ctrSavedPages = document.getElementById('saved-pages'),
-    ctrSelectAll = document.getElementById('select-all'),
-    ctrSelectNone = document.getElementById('select-none')
+    ctrSavedPages = document.getElementById('saved-pages');
+    ctrSelectAll = document.getElementById('select-all');
+    ctrSelectNone = document.getElementById('select-none');
+    ctrDeleteSelected = document.getElementById('delete-selected');
     ctrExportEpub = document.getElementById('export-epub');
 
     ctrSavedPages.onclick = function(event) {
@@ -238,6 +257,11 @@ document.addEventListener('DOMContentLoaded', function() {
     ctrSelectNone.onclick = function(event) {
         event.preventDefault();
         selectAll(false);
+    }
+
+    ctrDeleteSelected.onclick = function(event) {
+        event.preventDefault();
+        deleteSelected();
     }
 
     ctrExportEpub.onclick = function(event) {
