@@ -3,6 +3,7 @@
         "persistent": true,
         "scripts": [
             "js/epub.js",
+            "js/encodings.js",
             "js/bg.js"
         ]
     },

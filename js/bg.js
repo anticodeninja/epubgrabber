@@ -81,7 +81,20 @@ function decodeQuotedPrintable(value) {
         }
     }
 
-    return decodeURIComponent(escape(buffer));
+    let encoding = /content="text\/html;\s+charset=(\S+)"/.exec(buffer);
+    let encoded = null;
+
+    if (encoding !== null) {
+        if (encoding[1] === "cp1251" || encoding[1] === "windows-1251") {
+            encoded = convert_cp1251_to_utf8(buffer);
+        }
+    }
+
+    if (encoded === null) {
+        encoded = normalize_utf8(buffer);
+    }
+
+    return encoded;
 }
 
 function assembleBase64(type, payload) {
