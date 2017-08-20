@@ -93,3 +93,11 @@
     float: left;
     margin-left: 60px;
 }
+
+.page-list th:nth-of-type(3) {
+    width: 20%;
+}
+
+.page-list th:nth-of-type(4) {
+    width: 210px;
+}

@@ -85,7 +85,7 @@ function initialize() {
 }
 
 function renderTable() {
-    let output = '<table>';
+    let output = '<table class="page-list">';
 
     output += '<tr><th></th><th>Title</th><th>Location</th><th></th></tr>';
 
