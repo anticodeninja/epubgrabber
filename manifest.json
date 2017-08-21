@@ -2,6 +2,7 @@
     "background": {
         "persistent": true,
         "scripts": [
+            "js/common.js",
             "js/epub.js",
             "js/encodings.js",
             "js/bg.js"

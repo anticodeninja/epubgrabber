@@ -1,7 +1,9 @@
 "use strict";
 
-let ctrButtonsBlock, ctrSimplifyPage, ctrShowStorage, ctrSaveToStorage,
-    ctrProgressBlock, ctrProgressText;
+let currentConfig,
+    ctrButtonsBlock, ctrSimplifyPage, ctrShowStorage, ctrSaveToStorage, ctrConfigurePage,
+    ctrProgressBlock, ctrProgressText,
+    ctrConfigureBlock, ctrConfigureUrl, ctrConfigureTake, ctrConfigureRemove, ctrConfigurePreview, ctrConfigureSave;
 
 function setMessage(message, append) {
     var height;
@@ -21,14 +23,67 @@ function setMessage(message, append) {
     document.querySelector('html').style.height = height;
 }
 
+function getCtrList(control) {
+    return control.value.split(/,\s*/).filter(function(x) { return !!x });
+}
+
+function previewSimplifyImpl() {
+    function createOverlay(element) {
+        let overlay = document.createElement('div');
+        let clientRect = element.getBoundingClientRect();
+
+        overlay.className = 'epub-preview';
+        overlay.style.position = 'absolute';
+        overlay.style.top = (window.pageYOffset + clientRect.top) + 'px';
+        overlay.style.left = (window.pageXOffset + clientRect.left) + 'px';
+        overlay.style.width = clientRect.width + 'px';
+        overlay.style.height = clientRect.height + 'px';
+        overlay.style.zIndex = 2147483647;
+
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+
+    {
+        let blocks = document.querySelectorAll('.epub-preview');
+        for (let j = 0; j < blocks.length; ++j) {
+            blocks[j].remove();
+        }
+    }
+
+    for (let i = 0; i < take.length; ++i) {
+        let blocks = document.querySelectorAll(take[i]);
+        for (let j = 0; j < blocks.length; ++j) {
+            let overlay = createOverlay(blocks[j]);
+            overlay.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';
+        }
+    }
+
+    for (let i = 0; i < remove.length; ++i) {
+        let blocks = document.querySelectorAll(remove[i]);
+        for (let j = 0; j < blocks.length; ++j) {
+            let overlay = createOverlay(blocks[j]);
+            overlay.style.backgroundColor = 'rgba(255, 0, 0, 0.5)';
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     ctrButtonsBlock = document.getElementById('buttons-block');
     ctrSimplifyPage = document.getElementById('simplify-page');
     ctrShowStorage = document.getElementById('show-storage');
     ctrSaveToStorage = document.getElementById('save-to-storage');
+    ctrConfigurePage = document.getElementById('configure-page');
 
     ctrProgressBlock = document.getElementById('progress-block');
     ctrProgressText = document.getElementById('progress-text');
+
+    ctrConfigureBlock = document.getElementById('configure-block');
+    ctrConfigureUrl = document.getElementById('configure-url');
+    ctrConfigureTake = document.getElementById('configure-take');
+    ctrConfigureRemove = document.getElementById('configure-remove');
+    ctrConfigurePreview = document.getElementById('configure-preview');
+    ctrConfigureSave = document.getElementById('configure-save');
 
     ctrSimplifyPage.addEventListener('click', function(event) {
         event.preventDefault();
@@ -53,6 +108,47 @@ document.addEventListener('DOMContentLoaded', function() {
         setMessage('Saving page...');
     });
 
+    ctrConfigurePage.addEventListener('click', function(event) {
+        event.preventDefault();
+        chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+            ctrConfigureBlock.style.display = 'block';
+            ctrButtonsBlock.style.display = 'none';
+
+            getPageSettings(tabs[0].url, function(config) {
+                currentConfig = config;
+                ctrConfigureUrl.value = config.url;
+                ctrConfigureTake.value = config.take.join(', ');
+                ctrConfigureRemove.value = config.remove.join(', ');
+            });
+        });
+    });
+
+    ctrConfigurePreview.addEventListener('click', function(event) {
+        event.preventDefault();
+        chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+            let script = '(function() {\n';
+            script += 'var take = ' + JSON.stringify(getCtrList(ctrConfigureTake)) + ',\n';
+            script += '    remove = ' + JSON.stringify(getCtrList(ctrConfigureRemove)) + ';\n';
+            script += '(' + previewSimplifyImpl.toString() + ')();\n';
+            script += '})();';
+
+            chrome.tabs.executeScript(tabs[0].id, { code: script });
+        });
+    });
+
+    ctrConfigureSave.addEventListener('click', function(event) {
+        event.preventDefault();
+        ctrConfigureBlock.style.display = 'none';
+        ctrButtonsBlock.style.display = 'block';
+
+        currentConfig.url = ctrConfigureUrl.value;
+        currentConfig.take = getCtrList(ctrConfigureTake);
+        currentConfig.remove = getCtrList(ctrConfigureRemove);
+
+        setPageSettings(currentConfig);
+    });
+
+    ctrConfigureBlock.style.display = 'none';
     setMessage();
 });
 

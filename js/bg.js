@@ -171,28 +171,36 @@ function saveToStorage() {
     });
 }
 
+function simplifyPageImpl() {
+    let newBody = "";
+
+    for (let i = 0; i < remove.length; ++i) {
+        let blocks = document.querySelectorAll(remove[i]);
+        for (let j = 0; j < blocks.length; ++j) {
+            blocks[j].remove();
+        }
+    }
+
+    for (let i = 0; i < take.length; ++i) {
+        let blocks = document.querySelectorAll(take[i]);
+        for (let j = 0; j < blocks.length; ++j) {
+            newBody += blocks[j].innerHTML;
+        }
+    }
+
+    document.body.innerHTML = newBody;
+}
+
 function simplifyPage() {
     chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-        chrome.storage.sync.get('simplify_settings', function (data) {
-            var settings = data.simplify_settings,
-                i, blocks, re, script;
+        getPageSettings(tabs[0].url, function(config) {
+            if (config.id === 0) { return; }
 
-            for (i = 0; i < settings.sites.length; ++i) {
-                if (tabs[0].url.match(settings.sites[i].url)) {
-                    blocks = settings.sites[i].blocks;
-                    break;
-                }
-            }
-
-            if (!blocks) { return; }
-
-            script = 'document.body.innerHTML = ';
-            for (i = 0; i < blocks.length; ++i) {
-                script += 'document.querySelector("';
-                script += blocks[i];
-                script += '").innerHTML + ';
-            }
-            script += '"";';
+            let script = '(function() {\n';
+            script += 'var take = ' + JSON.stringify(config.take) + ',\n';
+            script += '    remove = ' + JSON.stringify(config.remove) + ';\n';
+            script += '(' + simplifyPageImpl.toString() + ')();\n';
+            script += '})();';
 
             chrome.tabs.executeScript(tabs[0].id, { code: script }, function(results) {
                 chrome.runtime.sendMessage({

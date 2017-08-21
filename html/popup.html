@@ -1,12 +1,15 @@
 <html>
   <head>
     <link rel="stylesheet" type="text/css" href="/css/main.css">
+    <script src="/js/common.js"></script>
+    <script src="/js/popup.js"></script>
   </head>
   <body class="popup">
     <div id="buttons-block">
       <a id="simplify-page" class="btn" href="">Simplify Page</a>
-      <a id="show-storage" class="btn" href="">Show Storage</a>
       <a id="save-to-storage" class="btn" href="">Save to Storage</a>
+      <a id="show-storage" class="btn" href="">Show Storage</a>
+      <a id="configure-page" class="btn" href="">Configure Page</a>
     </div>
     <div id="progress-block">
       <div class="text-wrapper">
@@ -16,6 +19,15 @@
         <div class="spinner"></div>
       </div>
     </div>
-    <script src="/js/popup.js"></script>
+    <div id="configure-block">
+      <label for="configure-url">Url Mask:</label>
+      <input id="configure-url" type="text"/>
+      <label for="configure-take">Take:</label>
+      <input id="configure-take" type="text"/>
+      <label for="configure-remove">Remove:</label>
+      <input id="configure-remove" type="text"/>
+      <a id="configure-preview" class="btn" href="">Preview</a>
+      <a id="configure-save" class="btn" href="">Save</a>
+    </div>
   </body>
 </html>
