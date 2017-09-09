@@ -98,9 +98,9 @@ function preparePage(source, params, parentContext) {
         if (children[i].nodeType == NODE_TEXT) {
             let textContent = children[i].nodeValue;
             if (!context.preserveAll) {
+                textContent = textContent.replace(/&/g, '&amp;');
                 textContent = textContent.replace(/</g, '&lt;');
                 textContent = textContent.replace(/>/g, '&gt;');
-                textContent = textContent.replace(/&/g, '&amp;');
             }
             if (!context.preserveWhitespaces) {
                 if (textContent.trim().length != 0) {
