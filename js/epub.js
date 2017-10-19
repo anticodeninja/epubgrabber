@@ -8,18 +8,21 @@ const NODE_TEXT = 3;
 const NODE_COMMENTS = 8;
 
 function calcNodeAction(name) {
-    if (name == "title") return REMOVE_NODE;
-    if (name == "meta") return REMOVE_NODE;
-    if (name == "style") return REMOVE_NODE;
-    if (name == "link") return REMOVE_NODE;
-    if (name == "script") return REMOVE_NODE;
+    if (name == "title") return { action: REMOVE_NODE };
+    if (name == "meta") return { action: REMOVE_NODE };
+    if (name == "style") return { action: REMOVE_NODE };
+    if (name == "link") return { action: REMOVE_NODE };
+    if (name == "script") return { action: REMOVE_NODE };
 
-    if (name == "button") return KEEP_CONTENT;
-    if (name == "iframe") return REMOVE_NODE;
+    if (name == "button") return { action: KEEP_CONTENT };
+    if (name == "iframe") return { action: REMOVE_NODE };
 
-    if (name == "font") return KEEP_CONTENT;
+    if (name == "font") return { action: KEEP_CONTENT };
 
-    return KEEP_NODE;
+    if (name == "pre") return { action: KEEP_NODE, preserveWhitespaces: true };
+    if (name == "code") return { action: KEEP_NODE, preserveWhitespaces: true };
+
+    return { action: KEEP_NODE };
 }
 
 function isValidAttr(name, attr) {
@@ -118,13 +121,21 @@ function preparePage(source, params, parentContext) {
             let nodeName = children[i].nodeName.toLowerCase();
             let nodeAction = calcNodeAction(nodeName);
 
-            if (nodeAction === REMOVE_NODE) {
+            if (nodeAction.action === REMOVE_NODE) {
                 continue;
             }
 
-            const content = preparePage(children[i], params, context);
+            const content = preparePage(children[i], params, {
+                level: context.level,
+                preserveWhitespaces: nodeAction.preserveWhitespaces !== undefined
+                    ? nodeAction.preserveWhitespaces
+                    : context.preserveWhitespaces,
+                preserveAll: nodeAction.preserveAll !== undefined
+                    ? nodeAction.preserveAll
+                    : context.preserveAll
+            });
 
-            if (nodeAction === KEEP_NODE) {
+            if (nodeAction.action === KEEP_NODE) {
                 result += "<" + nodeName;
                 let attributes = children[i].attributes;
                 let attributesName = [];
@@ -160,7 +171,7 @@ function preparePage(source, params, parentContext) {
                 } else {
                     result += "/>";
                 }
-            } else if (nodeAction === KEEP_CONTENT) {
+            } else if (nodeAction.action === KEEP_CONTENT) {
                 result += content;
             }
         }
