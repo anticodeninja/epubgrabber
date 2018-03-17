@@ -7,6 +7,13 @@ const KEEP_CONTENT = 3;
 const NODE_TEXT = 3;
 const NODE_COMMENTS = 8;
 
+function escapeHtmlEntities(value) {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 function calcNodeAction(name) {
     if (name == "title") return { action: REMOVE_NODE };
     if (name == "meta") return { action: REMOVE_NODE };
@@ -101,9 +108,7 @@ function preparePage(source, params, parentContext) {
         if (children[i].nodeType == NODE_TEXT) {
             let textContent = children[i].nodeValue;
             if (!context.preserveAll) {
-                textContent = textContent.replace(/&/g, '&amp;');
-                textContent = textContent.replace(/</g, '&lt;');
-                textContent = textContent.replace(/>/g, '&gt;');
+                textContent = escapeHtmlEntities(textContent);
             }
             if (!context.preserveWhitespaces) {
                 if (textContent.trim().length != 0) {
@@ -150,7 +155,7 @@ function preparePage(source, params, parentContext) {
                     if (nodeName == "img" && attrName == "src") {
                         result += " " + attrName + "=\"" + params.replaceImage(attrValue) + "\"";
                     } else if (nodeName == "a" && attrName == "href") {
-                        result += " " + attrName + "=\"" + attrValue.replace(/&/g, '&amp;') + "\"";
+                        result += " " + attrName + "=\"" + escapeHtmlEntities(attrValue) + "\"";
                     } else if (attrValue) {
                         result += " " + attrName + "=\"" + attrValue + "\"";
                     }
@@ -244,7 +249,7 @@ function getNavigationContent(info) {
     result += "    <meta name=\"dtb:maxPageNumber\" content=\"0\"/>\n";
     result += "  </head>\n";
     result += "  <docTitle>\n";
-    result += "    <text>" + info.title + "</text>\n";
+    result += "    <text>" + escapeHtmlEntities(info.title) + "</text>\n";
     result += "  </docTitle>\n";
     result += "  <navMap>\n";
     result += "    <navPoint id=\"toc\" playOrder=\"1\">\n";
@@ -256,7 +261,7 @@ function getNavigationContent(info) {
     for (let i = 0; i < info.chapters.length; ++i) {
         result += "    <navPoint id=\"" + info.chapters[i].id + "\" playOrder=\"" + (2 + i) + "\">\n";
         result += "      <navLabel>\n";
-        result += "        <text>" + info.chapters[i].title + "</text>\n";
+        result += "        <text>" + escapeHtmlEntities(info.chapters[i].title) + "</text>\n";
         result += "      </navLabel>\n";
         result += "      <content src=\"content/" + info.chapters[i].file + "\"/>\n";
         result += "    </navPoint>\n";
@@ -280,7 +285,8 @@ function getTocPageContent(info) {
     result += "    <h2>Table of Contents</h2>\n";
     result += "    <ol class=\"toc-items\">\n";
     for (let i = 0; i < info.chapters.length; ++i) {
-        result += "      <li><a href=\"" + info.chapters[i].file + "\">" + info.chapters[i].title + "</a></li>\n";
+        result += "      <li><a href=\"" + info.chapters[i].file + "\">" +
+            escapeHtmlEntities(info.chapters[i].title) + "</a></li>\n";
     }
     result += "    </ol>\n";
     result += "  </body>\n";
@@ -296,9 +302,9 @@ function getPageContent(info, payload) {
     result += "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n";
     result += "  <head profile=\"http://dublincore.org/documents/dcmi-terms/\">\n";
     result += "    <meta http-equiv=\"Content-Type\" content=\"text/html;\" />\n";
-    result += "    <title>" + info.title + "</title>\n";
-    result += "    <link rel=\"stylesheet\" type=\"text/css\" href=\"../css/ebook.css\"/>";
-    result += "    <meta name=\"DCTERMS.title\" content=\"" + info.title + "\" />\n";
+    result += "    <title>" + escapeHtmlEntities(info.title) + "</title>\n";
+    result += "    <link rel=\"stylesheet\" type=\"text/css\" href=\"../css/ebook.css\"/>\n";
+    result += "    <meta name=\"DCTERMS.title\" content=\"" + escapeHtmlEntities(info.title) + "\" />\n";
     result += "    <meta name=\"DCTERMS.language\" content=\"en\" scheme=\"DCTERMS.RFC4646\" />\n";
     result += "    <link rel=\"schema.DC\" href=\"http://purl.org/dc/elements/1.1/\" hreflang=\"en\" />\n";
     result += "    <link rel=\"schema.DCTERMS\" href=\"http://purl.org/dc/terms/\" hreflang=\"en\" />\n";
