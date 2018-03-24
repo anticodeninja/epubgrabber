@@ -110,29 +110,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     ctrConfigurePage.addEventListener('click', function(event) {
         event.preventDefault();
-        chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        chromep.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
             ctrConfigureBlock.style.display = 'block';
             ctrButtonsBlock.style.display = 'none';
 
-            getPageSettings(tabs[0].url, function(config) {
-                currentConfig = config;
-                ctrConfigureUrl.value = config.url;
-                ctrConfigureTake.value = config.take.join(', ');
-                ctrConfigureRemove.value = config.remove.join(', ');
-            });
+            return getPageSettings(tabs[0].url);
+        }).then((config) => {
+            currentConfig = config;
+            ctrConfigureUrl.value = config.url;
+            ctrConfigureTake.value = config.take.join(', ');
+            ctrConfigureRemove.value = config.remove.join(', ');
         });
     });
 
     ctrConfigurePreview.addEventListener('click', function(event) {
         event.preventDefault();
-        chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        chromep.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
             let script = '(function() {\n';
             script += 'var take = ' + JSON.stringify(getCtrList(ctrConfigureTake)) + ',\n';
             script += '    remove = ' + JSON.stringify(getCtrList(ctrConfigureRemove)) + ';\n';
             script += '(' + previewSimplifyImpl.toString() + ')();\n';
             script += '})();';
 
-            chrome.tabs.executeScript(tabs[0].id, { code: script });
+            return chromep.tabs.executeScript(tabs[0].id, { code: script });
         });
     });
 
@@ -153,10 +153,14 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 chrome.runtime.onMessage.addListener(function(message, sender, callback) {
-    if (message.action == 'page_saved' || message.action == 'page_simplified') {
-        setMessage('\nCompleted.', true);
-        setTimeout(function(){
-            setMessage();
-        }, 1000);
+    if (message.action == 'page_simplified' || message.action == 'page_saved') {
+        if (!message.result) {
+            setMessage('\nCompleted.', true);
+            setTimeout(function(){
+                setMessage();
+            }, 1000);
+        } else {
+            setMessage('Error: ' + message.result, false);
+        }
     }
 });

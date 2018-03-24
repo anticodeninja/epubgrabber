@@ -156,9 +156,10 @@ function preparePage(source, params, parentContext) {
                     }
 
                     if (nodeName == "img" && attrName == "src") {
-                        result += " " + attrName + "=\"" + params.replaceImage(attrValue) + "\"";
-                    } else if (nodeName == "a" && attrName == "href") {
-                        result += " " + attrName + "=\"" + escapeHtmlEntities(attrValue) + "\"";
+                        if (params && params.replaceImage) {
+                            attrValue = params.replaceImage(attrValue);
+                        }
+                        result += " " + attrName + "=\"" + attrValue + "\"";
                     } else if (attrValue) {
                         result += " " + attrName + "=\"" + attrValue + "\"";
                     }

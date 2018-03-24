@@ -1,27 +1,28 @@
 "use strict";
 
-function getPageSettings(url, callback) {
-    chrome.storage.sync.get('settings', function (data) {
+const chromep = new ChromePromise();
+
+function getPageSettings(url) {
+    return chromep.storage.sync.get('settings').then((data) => {
         let simplifySettings = (data.settings || {}).simplify || [];
 
         for (let i = 0; i < simplifySettings.length; ++i) {
             if (url.match(simplifySettings[i].url)) {
-                callback(simplifySettings[i]);
-                return;
+                return simplifySettings[i];
             }
         }
 
-        callback({
+        return {
             id: 0,
             url: url,
             take: ["body"],
             remove: []
-        });
+        };
     });
 }
 
 function setPageSettings(config) {
-    chrome.storage.sync.get('settings', function (data) {
+    return chromep.storage.sync.get('settings').then((data) => {
         if (!data.settings) { data.settings = {}; };
         if (!data.settings.simplify) { data.settings.simplify = []; };
 
@@ -44,6 +45,6 @@ function setPageSettings(config) {
             simplifySettings.push(config);
         }
 
-        chrome.storage.sync.set(data);
+        return chromep.storage.sync.set(data);
     });
 }
