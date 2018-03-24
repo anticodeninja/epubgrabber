@@ -45,7 +45,12 @@ function getSelected() {
 }
 
 function deleteItems(idList) {
-    let result = window.confirm("Are you sure?");
+    const deletedTitles = [];
+    for (let i = 0, l = idList.length; i < l; ++i) {
+        deletedTitles.push(loadedMetadata["info_" + idList[i]].title);
+    }
+
+    let result = window.confirm("Are you sure that you want to delete the following articles?\n" + deletedTitles.join("\n"));
     if (!result) return;
 
     for (let i = 0; i < idList.length; ++i) {
