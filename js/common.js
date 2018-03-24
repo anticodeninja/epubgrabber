@@ -14,7 +14,7 @@ function getPageSettings(url, callback) {
         callback({
             id: 0,
             url: url,
-            take: [],
+            take: ["body"],
             remove: []
         });
     });

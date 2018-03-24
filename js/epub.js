@@ -11,7 +11,8 @@ function escapeHtmlEntities(value) {
     return value
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
 function calcNodeAction(name) {
@@ -24,6 +25,7 @@ function calcNodeAction(name) {
     if (name == "button") return { action: KEEP_CONTENT };
     if (name == "iframe") return { action: REMOVE_NODE };
 
+    if (name == "a") return { action: KEEP_CONTENT };
     if (name == "font") return { action: KEEP_CONTENT };
 
     if (name == "pre") return { action: KEEP_NODE, preserveWhitespaces: true };
@@ -84,6 +86,7 @@ function isValidAttr(name, attr) {
 
 function isContentObligatory(nodeName) {
     if (nodeName == "a") return true;
+    if (nodeName == "i") return true;
     if (nodeName == "ul") return true;
     if (nodeName == "ol") return true;
 
@@ -178,6 +181,10 @@ function preparePage(source, params, parentContext) {
                 }
             } else if (nodeAction.action === KEEP_CONTENT) {
                 result += content;
+
+                if (nodeName == "a" && children[i].attributes["href"]) {
+                    result += " [" + escapeHtmlEntities(children[i].attributes["href"].value) + "]";
+                }
             }
         }
     }
@@ -212,7 +219,7 @@ function getEbookContent(info) {
     result += "<manifest>\n";
     result += "  <item id=\"navigation\" media-type=\"application/x-dtbncx+xml\" href=\"navigation.ncx\"/>\n";
     result += "  <item id=\"toc\" media-type=\"application/xhtml+xml\" href=\"content/toc.xhtml\"/>\n";
-    result += "  <item id=\"css\" media-type=\"text/css\" href=\"css/ebook.css\"/>";
+    result += "  <item id=\"css\" media-type=\"text/css\" href=\"css/ebook.css\"/>\n";
     for (let i = 0; i < info.chapters.length; ++i) {
         result += "  <item id=\"" + info.chapters[i].id + "\" media-type=\"application/xhtml+xml\"" +
             " href=\"content/" + info.chapters[i].file + "\"/>\n";
