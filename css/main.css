@@ -101,3 +101,12 @@
 .page-list th:nth-of-type(4) {
     width: 210px;
 }
+
+.simplifiers-list th:nth-of-type(2),
+.simplifiers-list th:nth-of-type(3) {
+    width: 20%;
+}
+
+.simplifiers-list input {
+    width: 100%;
+}

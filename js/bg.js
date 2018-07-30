@@ -228,8 +228,8 @@ function simplifyPage() {
         return getPageSettings(tab.url);
     }).then((config) => {
         script = '(function() {\n';
-        script += 'var take = ' + JSON.stringify(config.take) + ',\n';
-        script += '    remove = ' + JSON.stringify(config.remove) + ';\n';
+        script += 'var take = ' + JSON.stringify(splitFilter(config.take)) + ',\n';
+        script += '    remove = ' + JSON.stringify(splitFilter(config.remove)) + ';\n';
         script += '(' + simplifyPageImpl.toString() + ')();\n';
         script += '})();';
 

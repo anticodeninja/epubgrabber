@@ -23,10 +23,6 @@ function setMessage(message, append) {
     document.querySelector('html').style.height = height;
 }
 
-function getCtrList(control) {
-    return control.value.split(/,\s*/).filter(function(x) { return !!x });
-}
-
 function previewSimplifyImpl() {
     function createOverlay(element) {
         let overlay = document.createElement('div');
@@ -118,8 +114,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }).then((config) => {
             currentConfig = config;
             ctrConfigureUrl.value = config.url;
-            ctrConfigureTake.value = config.take.join(', ');
-            ctrConfigureRemove.value = config.remove.join(', ');
+            ctrConfigureTake.value = config.take;
+            ctrConfigureRemove.value = config.remove;
         });
     });
 
@@ -127,8 +123,8 @@ document.addEventListener('DOMContentLoaded', function() {
         event.preventDefault();
         chromep.tabs.query({ active: true, currentWindow: true }).then((tabs) => {
             let script = '(function() {\n';
-            script += 'var take = ' + JSON.stringify(getCtrList(ctrConfigureTake)) + ',\n';
-            script += '    remove = ' + JSON.stringify(getCtrList(ctrConfigureRemove)) + ';\n';
+            script += 'var take = ' + JSON.stringify(splitFilter(ctrConfigureTake.value)) + ',\n';
+            script += '    remove = ' + JSON.stringify(splitFilter(ctrConfigureRemove.value)) + ';\n';
             script += '(' + previewSimplifyImpl.toString() + ')();\n';
             script += '})();';
 
@@ -142,8 +138,8 @@ document.addEventListener('DOMContentLoaded', function() {
         ctrButtonsBlock.style.display = 'block';
 
         currentConfig.url = ctrConfigureUrl.value;
-        currentConfig.take = getCtrList(ctrConfigureTake);
-        currentConfig.remove = getCtrList(ctrConfigureRemove);
+        currentConfig.take = ctrConfigureTake.value;
+        currentConfig.remove = ctrConfigureRemove.value;
 
         setPageSettings(currentConfig);
     });

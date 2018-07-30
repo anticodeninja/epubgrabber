@@ -2,13 +2,25 @@
 
 const chromep = new ChromePromise();
 
+function padLeft(value, length, char) {
+    value = "" + value;
+    while (value.length < length) {
+        value = char + value;
+    }
+    return value;
+}
+
+function splitFilter(filter) {
+    return filter.split(/,\s*/).filter(function(x) { return !!x });
+}
+
 function getPageSettings(url) {
     return chromep.storage.sync.get('settings').then((data) => {
-        let simplifySettings = (data.settings || {}).simplify || [];
+        let simplifier = (data.settings || {}).simplifiers || [];
 
-        for (let i = 0; i < simplifySettings.length; ++i) {
-            if (url.match(simplifySettings[i].url)) {
-                return simplifySettings[i];
+        for (let i = 0; i < simplifier.length; ++i) {
+            if (url.match(simplifier[i].url)) {
+                return simplifier[i];
             }
         }
 
@@ -21,28 +33,28 @@ function getPageSettings(url) {
     });
 }
 
-function setPageSettings(config) {
+function setPageSettings(simplifier) {
     return chromep.storage.sync.get('settings').then((data) => {
         if (!data.settings) { data.settings = {}; };
-        if (!data.settings.simplify) { data.settings.simplify = []; };
+        if (!data.settings.simplifiers) { data.settings.simplifiers = []; };
 
-        let simplifySettings = data.settings.simplify;
+        let simplifiers = data.settings.simplifiers;
 
-        if (config.id !== 0) {
-            for (let i = 0; i < simplifySettings.length; ++i) {
-                if (simplifySettings[i].id == config.id) {
-                    simplifySettings[i] = config;
+        if (simplifier.id !== 0) {
+            for (let i = 0; i < simplifiers.length; ++i) {
+                if (simplifiers[i].id == simplifier.id) {
+                    simplifiers[i] = simplifier;
                     break;
                 }
             }
         } else {
-            config.id = 1;
-            for (let i = 0; i < simplifySettings.length; ++i) {
-                if (simplifySettings[i].id >= config.id) {
-                    config.id = simplifySettings[i].id + 1;
+            simplifier.id = 1;
+            for (let i = 0; i < simplifiers.length; ++i) {
+                if (simplifiers[i].id >= simplifier.id) {
+                    simplifier.id = simplifiers[i].id + 1;
                 }
             }
-            simplifySettings.push(config);
+            simplifiers.push(simplifier);
         }
 
         return chromep.storage.sync.set(data);
