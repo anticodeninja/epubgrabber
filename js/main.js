@@ -23,10 +23,10 @@ function getPublishDate() {
 function getBookId() {
     let date = new Date();
     let result = "EpubGrabber ";
-    result += date.getFullYear() + "-";
-    result += padLeft(date.getMonth() + 1, 2, "0") + "-";
-    result += padLeft(date.getDate(), 2, "0") + " ";
-    result += padLeft(date.getHours(), 2, "0") + ":";
+    result += date.getFullYear();
+    result += padLeft(date.getMonth() + 1, 2, "0");
+    result += padLeft(date.getDate(), 2, "0") + "T";
+    result += padLeft(date.getHours(), 2, "0");
     result += padLeft(date.getMinutes(), 2, "0");
     return result;
 }
@@ -231,7 +231,16 @@ function exportEpub() {
         cssFolder.file("ebook.css", getCssContent());
 
         epubFile.generateAsync({type: "blob"}).then(function(content){
-            saveAs(content, info.title.replace(/\s/g, "_") + ".epub");
+            var url = window.URL.createObjectURL(content);
+
+            chrome.downloads.download({
+                url: url,
+                filename: info.title.replace(/\s/g, "_") + ".epub",
+                saveAs: true,
+                conflictAction: 'prompt'
+            }, function() {
+                window.URL.revokeObjectURL(url);
+            });
         }).catch(function(err){
             console.log(err);
         });

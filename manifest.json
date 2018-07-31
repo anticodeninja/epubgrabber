@@ -27,6 +27,7 @@
     "permissions": [
         "<all_urls>",
         "activeTab",
+        "downloads",
         "storage",
         "pageCapture",
         "unlimitedStorage"
