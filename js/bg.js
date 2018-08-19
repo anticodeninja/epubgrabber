@@ -94,6 +94,8 @@ function decodeQuotedPrintable(value) {
     if (encoding !== null) {
         if (encoding[1] === "cp1251" || encoding[1] === "windows-1251") {
             encoded = convert_cp1251_to_utf8(buffer);
+        } else if (encoding[1] === "cp1252" || encoding[1] === "windows-1252") {
+            encoded = convert_cp1252_to_utf8(buffer);
         }
     }
 
@@ -111,7 +113,7 @@ function assembleBase64(type, payload) {
 function simplifyAndSave(files) {
     return new Promise((resolve, reject) => {
         const blankGif = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-              imageTypes = ["image/jpeg", "image/gif", "image/png", "image/svg+xml"],
+              imageTypes = ["image/jpeg", "image/gif", "image/png", "image/webp", "image/svg+xml"],
               temp = document.createElement("div");
 
         temp.innerHTML = decodeQuotedPrintable(files[0].payload);

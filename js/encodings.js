@@ -9,6 +9,13 @@ const cp1251_128_192_map = [
     '\u0451', '\u2116', '\u0454', '\u00BB', '\u0458', '\u0405', '\u0455', '\u0457'
 ];
 
+const cp1252_128_160_map = [
+    '\u20AC', '\u0098', '\u201A', '\u0192', '\u201E', '\u2026', '\u2020', '\u2021',
+    '\u20C6', '\u2030', '\u0160', '\u2039', '\u0152', '\u0098', '\u017D', '\u0098',
+    '\u0098', '\u2018', '\u2019', '\u201C', '\u201D', '\u2022', '\u2013', '\u2014',
+    '\u02DC', '\u2122', '\u0161', '\u203A', '\u0153', '\u0098', '\u017E', '\u0178'
+];
+
 function convert_cp1251_to_utf8(value) {
     let buffer = "";
     let index = 0;
@@ -22,6 +29,24 @@ function convert_cp1251_to_utf8(value) {
             buffer += String.fromCharCode(0x0410 + (charCode - 0xC0));
         } else if (charCode >= 0x80 && charCode <= 0xBF) {
             buffer += cp1251_128_192_map[charCode - 0x80];
+        }
+    }
+
+    return buffer;
+}
+
+function convert_cp1252_to_utf8(value) {
+    let buffer = "";
+    let index = 0;
+
+    for (let index = 0; index < value.length; ++index) {
+        let charCode = value.charCodeAt(index);
+
+        if (charCode >= 0x00 && charCode <= 0x7F ||
+            charCode >= 0xA0 && charCode <= 0xFF) {
+            buffer += String.fromCharCode(charCode);
+        } else if (charCode >= 0x80 && charCode <= 0x9F) {
+            buffer += cp1252_128_160_map[charCode - 0x80];
         }
     }
 
