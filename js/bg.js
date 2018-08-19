@@ -110,10 +110,46 @@ function assembleBase64(type, payload) {
     return "data:" + type + ";base64," + payload.replace(/[^A-Za-z0-9+\/=]/g, "");
 }
 
+function preparePage(source, images) {
+    function recurse(current) {
+        for (let i = 0, children = Array.from(current.childNodes), leni = children.length; i < leni; i++) {
+            let obj = children[i];
+            if (obj.nodeType == Node.COMMENT_NODE) {
+                obj.remove();
+                continue;
+            }
+
+            if (obj.nodeType == Node.ELEMENT_NODE) {
+                let nodeName = obj.nodeName.toLowerCase();
+                if (skipTag(nodeName)) {
+                    obj.remove();
+                    continue;
+                }
+
+                for (let j = 0, attrs = Array.from(obj.attributes), lenj = attrs.length; j < lenj; j++) {
+                    let attrName = attrs[j].nodeName.toLowerCase();
+                    if (skipAttr(attrName)) {
+                        obj.removeAttribute(attrName);
+                        continue;
+                    }
+
+                    if (nodeName == "img" && attrName == "src") {
+                        attrs[j].nodeValue = images[attrs[j].nodeValue] || blankGif;
+                    }
+                }
+
+                recurse(obj, images);
+            }
+        }
+    }
+
+    recurse(source);
+    return source.innerHTML;
+}
+
 function simplifyAndSave(files) {
     return new Promise((resolve, reject) => {
-        const blankGif = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
-              imageTypes = ["image/jpeg", "image/gif", "image/png", "image/webp", "image/svg+xml"],
+        const imageTypes = ["image/jpeg", "image/gif", "image/png", "image/webp", "image/svg+xml"],
               temp = document.createElement("div");
 
         temp.innerHTML = decodeQuotedPrintable(files[0].payload);
@@ -122,7 +158,7 @@ function simplifyAndSave(files) {
         for (let i = 0; i < files.length; ++i) {
             const file = files[i];
 
-            if (imageTypes.indexOf(file.headers.type) === -1) {
+            if (!imageTypes.includes(file.headers.type)) {
                 console.log(file.headers);
                 continue;
             }
@@ -136,12 +172,7 @@ function simplifyAndSave(files) {
 
         const titleNode = temp.querySelector("title");
         const title = titleNode ? titleNode.innerText : "";
-
-        const html = preparePage(temp, {
-            replaceImage: function(src){
-                let image = images[src];
-                return image || blankGif;
-            }});
+        const html = preparePage(temp, images);
 
         resolve(chromep.storage.sync.get(null).then((data) => {
             data.indexer = data.indexer || {

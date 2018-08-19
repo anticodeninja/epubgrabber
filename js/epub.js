@@ -1,197 +1,304 @@
-"use strict";
+'use strict';
 
-const KEEP_NODE = 1;
-const REMOVE_NODE = 2;
-const KEEP_CONTENT = 3;
+const EPUB_UNSUPPORTED_BLOCKS = ['header', 'blockquote', 'dl', 'dt', 'dd'];
+const EPUB_UNSUPPORTED_SPANS = ['button', 'time', 's'];
 
-const NODE_TEXT = 3;
-const NODE_COMMENTS = 8;
-
-function escapeHtmlEntities(value) {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+const RST_HEADERS = {
+    'h1': { b: '=', a: '='},
+    'h2': { b: '-', a: '-'},
+    'h3': { b: '`', a: '`'},
+    'h4': { b: '', a: '='},
+    'h5': { b: '', a: '-'},
+    'h6': { b: '', a: '`'}
 }
 
-function calcNodeAction(name) {
-    if (name == "title") return { action: REMOVE_NODE };
-    if (name == "meta") return { action: REMOVE_NODE };
-    if (name == "style") return { action: REMOVE_NODE };
-    if (name == "link") return { action: REMOVE_NODE };
-    if (name == "script") return { action: REMOVE_NODE };
-
-    if (name == "button") return { action: KEEP_CONTENT };
-    if (name == "iframe") return { action: REMOVE_NODE };
-
-    if (name == "a") return { action: KEEP_CONTENT };
-    if (name == "font") return { action: KEEP_CONTENT };
-
-    if (name == "pre") return { action: KEEP_NODE, preserveWhitespaces: true };
-    if (name == "code") return { action: KEEP_NODE, preserveWhitespaces: true };
-
-    return { action: KEEP_NODE };
+function escapeHtmlEntities(value, full) {
+    value = value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    if (full) value = value.replace(/"/g, '&quot;');
+    return value;
 }
 
-function isValidAttr(name, attr) {
-    if (attr == "id") return false;
-    if (attr == "style") return false;
-    if (attr == "class") return false;
+function contentObligatory(nodeName) {
+    return CONTENT_OBLIGATORY.includes(nodeName);
+}
 
-    if (attr == "contenteditable") return false;
-    if (attr.startsWith("data-")) return false;
-
-    if (attr == "onclick") return false;
-    if (attr == "onblur") return false;
-    if (attr == "onchange") return false;
-    if (attr == "onclick") return false;
-    if (attr == "ondblclick") return false;
-    if (attr == "onfocus") return false;
-    if (attr == "onkeydown") return false;
-    if (attr == "onkeypress") return false;
-    if (attr == "onkeyup") return false;
-    if (attr == "onload") return false;
-    if (attr == "onmousedown") return false;
-    if (attr == "onmousemove") return false;
-    if (attr == "onmouseout") return false;
-    if (attr == "onmouseover") return false;
-    if (attr == "onmouseup") return false;
-    if (attr == "onreset") return false;
-    if (attr == "onselect") return false;
-    if (attr == "onscroll") return false;
-    if (attr == "onsubmit") return false;
-    if (attr == "onunload") return false;
-
-    if (name == "a") {
-        if (attr != "href" && attr != "title" && attr != "rel") {
-            if (attr != "name") {
-                console.log("Ignored", name, attr);
-            }
-            return false;
+function extractText(element, context) {
+    let pre = context && context.pre;
+    let textContent = escapeHtmlEntities(element.nodeValue, !pre);
+    if (!pre) {
+        if (textContent.trim().length != 0) {
+            textContent = textContent.replace(/^[\r\n]+|[\r\n]+$/g, '');
+        } else {
+            textContent = '';
         }
-    } else if (name == "img") {
-        if (attr != "src" && attr != "alt") {
-            if (true) {
-                console.log("Ignored", name, attr);
-            }
-            return false;
-        }
-    } else {
-        console.log("Unhandled ", name);
+    }
+    return textContent;
+}
+
+function saveImage(images, image) {
+    let imageData = image.substr(image.indexOf(',') + 1);
+    let imageHash = new jsSHA('SHA-1', 'TEXT');
+    imageHash.update(imageData);
+    let format = image.match(/^data:(image\/([^;]+))/);
+    let imageId = 'img_' + imageHash.getHash('HEX') + '.' + format[2];
+
+    if (!images[imageId]) {
+        images[imageId] = { data: imageData, type: format[1] };
     }
 
-    return true;
+    return imageId;
 }
 
-function isContentObligatory(nodeName) {
-    if (nodeName == "a") return true;
-    if (nodeName == "i") return true;
-    if (nodeName == "ul") return true;
-    if (nodeName == "ol") return true;
-
-    return false;
+function getAttr(element, name, defValue, callback) {
+    let attr = element.attributes[name];
+    if (attr) {
+        callback(attr.nodeValue);
+    } else if (defValue !== undefined) {
+        callback(defValue);
+    }
 }
 
-function preparePage(source, params, parentContext) {
-    if (source.nodeType !== 1) {
-        return false;
+function prepareEpub(source) {
+    const result = [];
+    const images = {};
+    const levels = [];
+
+    function normalize() {
+        function isBlockStart(value) {
+            let match = value.match(/^<\/?([^\/> ]+)/);
+            return match && BLOCKS.includes(match[1]);
+        }
+        let temp = '', offset = result.length - 1;
+        while (offset > 0 && !isBlockStart(result[offset])) temp = result[offset--] + temp;
+        temp = temp != '' ? temp.replace(/^(\n|\s)*|(\n|\s)*$/g, '').split('\n') : [];
+        result.splice(offset + 1, result.length - (offset + 1), ...temp);
     }
 
-    let children = source.childNodes;
-    let result = "";
-
-    const context = {
-        level: parentContext ? parentContext.level + 1 : 0,
-        preserveWhitespaces: parentContext ? parentContext.preserveWhitespaces : false,
-        preserveAll: parentContext ? parentContext.preserveAll : false
-    };
-
-    for (let i = 0; i < children.length; i++) {
-        if (children[i].nodeType == NODE_TEXT) {
-            let textContent = children[i].nodeValue;
-            if (!context.preserveAll) {
-                textContent = escapeHtmlEntities(textContent);
-            }
-            if (!context.preserveWhitespaces) {
-                if (textContent.trim().length != 0) {
-                    textContent = textContent.replace(/^[\r\n]+|[\r\n]+$/g, '');
-                } else {
-                    textContent = '';
+    function recurse(current) {
+        let prevLevel = levels.length > 0 ? levels[levels.length - 1] : {};
+        for (let i = 0, children = current.childNodes; i < children.length; i++) {
+            let obj = children[i];
+            if (obj.nodeType == Node.TEXT_NODE) {
+                let text = extractText(obj, levels[levels.length-1]);
+                if (text.length > 0) result.push(text);
+            } else if (obj.nodeType == Node.ELEMENT_NODE) {
+                let nodeName = obj.nodeName.toLowerCase();
+                if (skipTag(nodeName)) {
+                    continue;
                 }
-            }
-            result += textContent;
-        }
-        else if (children[i].nodeType == NODE_COMMENTS) {
-            // Ignore comments
-        }
-        else {
-            let nodeName = children[i].nodeName.toLowerCase();
-            let nodeAction = calcNodeAction(nodeName);
 
-            if (nodeAction.action === REMOVE_NODE) {
-                continue;
-            }
+                if (EPUB_UNSUPPORTED_BLOCKS.includes(nodeName)) nodeName = 'div';
+                if (EPUB_UNSUPPORTED_SPANS.includes(nodeName)) nodeName = 'span';
 
-            const content = preparePage(children[i], params, {
-                level: context.level,
-                preserveWhitespaces: nodeAction.preserveWhitespaces !== undefined
-                    ? nodeAction.preserveWhitespaces
-                    : context.preserveWhitespaces,
-                preserveAll: nodeAction.preserveAll !== undefined
-                    ? nodeAction.preserveAll
-                    : context.preserveAll
-            });
-
-            if (nodeAction.action === KEEP_NODE) {
-                result += "<" + nodeName;
-                let attributes = children[i].attributes;
-                let attributesName = [];
-                for (let j = 0; j < attributes.length; j++) {
-                    let attrName = attributes[j].nodeName.toLowerCase();
-                    let attrValue = attributes[j].nodeValue;
-
-                    if (!isValidAttr(nodeName, attrName)) {
-                        continue; // Ignore it
-                    }
-
-                    if (nodeName == "img" && attrName == "src") {
-                        if (params && params.replaceImage) {
-                            attrValue = params.replaceImage(attrValue);
+                if (BLOCKS.includes(nodeName) && !prevLevel.block) {
+                    for (let j = 0; j < levels.length; ++j) {
+                        if (!BLOCKS.includes(levels[j].tag)) {
+                            levels[j].tag = 'div';
                         }
-                        result += " " + attrName + "=\"" + attrValue + "\"";
-                    } else if (attrValue) {
-                        result += " " + attrName + "=\"" + attrValue + "\"";
-                    }
-
-                    attributesName.push(attrName);
-                }
-
-                if (nodeName == "img") {
-                    if (!attributesName.includes("alt")) {
-                        result += " alt=\"\"";
                     }
                 }
 
-                if (content.length > 0 || isContentObligatory(nodeName)) {
-                    result += ">";
-                    result += content;
-                    result += '</' + nodeName + '>';
-                } else {
-                    result += "/>";
-                }
-            } else if (nodeAction.action === KEEP_CONTENT) {
-                result += content;
+                let blockNode = BLOCKS.includes(nodeName);
 
-                if (nodeName == "a" && children[i].attributes["href"]) {
-                    result += " [" + escapeHtmlEntities(children[i].attributes["href"].value) + "]";
+                if (blockNode) {
+                    normalize();
+                }
+
+                levels.push({
+                    offset: result.length,
+                    tag: nodeName,
+                    pre: prevLevel.pre || nodeName == 'pre',
+                    block: prevLevel.block && blockNode
+                });
+
+                recurse(obj);
+
+                let last = levels.pop();
+                if (last.tag == 'a') {
+                    getAttr(obj, 'href', undefined, x => {
+                        result[result.length - 1] += ' [' + escapeHtmlEntities(x, true) + ']';
+                    });
+                } else if (last.tag == 'img') {
+                    let img = 'img';
+                    getAttr(obj, 'alt', '', x => img += ' alt="' + x + '"');
+                    getAttr(obj, 'src', blankGif, x => img += ' src="../images/' + saveImage(images, x) + '"');
+                    if (obj.width >= 300) img += ' class="full"';
+                    result.push('<' + img + '/>');
+                } else if (last.tag == 'br') {
+                    if (result[result.length - 1] != '<br/>') result.push('<br/>');
+                } else if (result.length != last.offset && result[result.length - 1] != '</' + last.tag + '>') {
+                    let [ start, stop ] = last.tag != 'span' // ignore
+                        ? ['<' + last.tag + '>', '</' + last.tag + '>']
+                        : [ '', '' ];
+
+                    if (BLOCKS.includes(last.tag)) {
+                        result.splice(last.offset, 0, start);
+                        normalize();
+                        result.push(stop);
+                    } else {
+                        result[last.offset] = start + result[last.offset];
+                        result[result.length - 1] = result[result.length - 1] + stop;
+                    }
                 }
             }
         }
     }
 
-    return result;
+    recurse(source);
+    return [result, images];
 }
+
+function prepareRst(source) {
+    const NORMALIZE_ONELINE = 1;
+    const NORMALIZE_MULTILINE = 2;
+    const NORMALIZE_PRESERVE = 3;
+    const SPLIT_MARKS = ['.', '?', '!'];
+
+    const result = [];
+    const images = {};
+    const levels = [];
+
+    let normalizedOffset = 0;
+
+    function normalize(offset, mode) {
+        let temp = [], combined = '';
+        for (let i = result.length - 1; i >= offset && i >= normalizedOffset; --i) {
+            let chunk = result[i];
+            if (mode != NORMALIZE_PRESERVE) {
+                chunk = chunk.trim().replace(/\s+/, ' ');
+                if (combined.length > 0) {
+                    chunk = chunk + ' ';
+                }
+            }
+            combined = chunk + combined;
+        }
+        normalizedOffset = Math.max(normalizedOffset, offset);
+
+        if (combined.length == 0) {
+            return;
+        }
+
+        if (mode == NORMALIZE_PRESERVE) {
+            temp = combined.split('\n');
+            while (temp.length > 0 && temp[0].length == 0) temp.splice(0, 1);
+            while (temp.length > 0 && temp[temp.length - 1].length == 0) temp.splice(temp.length - 1, 1);
+        } else if (mode == NORMALIZE_MULTILINE) {
+            let startChunk = 0;
+            for (let i = 0, len = combined.length - 1; i < len; ++i) {
+                if (SPLIT_MARKS.includes(combined[i]) && combined[i + 1] == ' ') {
+                    temp.push(combined.substring(startChunk, i + 1).trim());
+                    startChunk = i + 1;
+                }
+            }
+            temp.push(combined.substring(startChunk).trim());
+        } else if (mode == NORMALIZE_ONELINE) {
+            temp = [combined];
+        }
+
+        result.splice(normalizedOffset, result.length - normalizedOffset, ...temp);
+    }
+
+    function insert(offset, pad, value) {
+        let existPad = 0;
+        while (existPad < pad && (offset - existPad - 1 < 0 || result[offset - existPad - 1].length == 0)) {
+            existPad += 1;
+        }
+
+        let temp = [];
+        for (let i = existPad; i < pad; ++i) {
+            temp.push('');
+        }
+        if (value) {
+            temp.push(value);
+        }
+
+        result.splice(offset, 0, ...temp);
+    }
+
+    function recurse(current) {
+        let prevLevel = levels.length > 0 ? levels[levels.length - 1] : {};
+        for (let i = 0, children = current.childNodes; i < children.length; i++) {
+            let obj = children[i];
+            if (obj.nodeType == Node.TEXT_NODE) {
+                let text = extractText(obj, levels[levels.length-1]);
+                if (text.length > 0) result.push(text);
+            } else if (obj.nodeType == Node.ELEMENT_NODE) {
+                let nodeName = obj.nodeName.toLowerCase();
+                if (skipTag(nodeName)) {
+                    continue;
+                }
+
+                levels.push({
+                    offset: result.length,
+                    tag: nodeName,
+                    pre: prevLevel.pre || nodeName == 'pre'
+                });
+                recurse(obj);
+
+                let last = levels.pop();
+                if (RST_HEADERS[last.tag]) {
+                    normalize(last.offset, NORMALIZE_ONELINE);
+                    let header = result[result.length-1],
+                        headerParam = RST_HEADERS[last.tag],
+                        start = '',
+                        stop = '';
+
+                    for (let i = 0, len = header.length; i < len; ++i) {
+                        start += headerParam.b;
+                        stop += headerParam.a;
+                    }
+
+                    insert(last.offset, 2, start);
+                    result.push(stop);
+                    normalizedOffset = result.length;
+                } else if (last.tag == 'a') {
+                    normalize(last.offset, NORMALIZE_ONELINE);
+                    getAttr(obj, 'href', undefined, x => {
+                        let last = result.length - 1;
+                        result[last] = '`' + result[last] + ' <' + escapeHtmlEntities(x, true) + '>`';
+                    });
+                } else if (last.tag == 'i') {
+                    result[last.offset] = '*' + result[last.offset];
+                    result[result.length - 1] = result[result.length - 1] + '*';
+                } else if (last.tag == 'b') {
+                    result[last.offset] = '**' + result[last.offset];
+                    result[result.length - 1] = result[result.length - 1] + '**';
+                } else if (last.tag == 'li') {
+                    // if (prevLevel.ol) {
+                    //     result += '#. ';
+                    // } else if (prevLevel.ul) {
+                    //     result += '* ';
+                    // }
+                    // result += content + '\n';
+                } else if (last.tag == 'pre') {
+                    normalize(last.offset, NORMALIZE_PRESERVE);
+                    for (let i = last.offset; i < result.length; ++i) {
+                        result[i] = '   ' + result[i];
+                    }
+                    insert(last.offset, 1, null);
+                    insert(last.offset, 1, '.. code::');
+                    normalizedOffset = result.length;
+                } else if (last.tag == 'div' || last.tag == 'p') {
+                    normalize(last.offset, NORMALIZE_MULTILINE);
+                    insert(last.offset, 1, null);
+                    normalizedOffset = result.length;
+                } else if (last.tag == 'img') {
+                    normalize(last.offset, NORMALIZE_MULTILINE);
+                    getAttr(obj, 'src', blankGif, function(x) {
+                        result.push('.. image:: ' + saveImage(images, x));
+                        getAttr(obj, 'alt', undefined, x => result.push('   :alt: ' + x));
+                        result.push('');
+                    });
+                    normalizedOffset = result.length;
+                }
+            }
+        }
+    }
+
+    recurse(source);
+    return [result, images];
+}
+
 
 function getContainerContent() {
     let result = "";
@@ -226,8 +333,8 @@ function getEbookContent(info) {
             " href=\"content/" + info.chapters[i].file + "\"/>\n";
     }
     for (let i = 0; i < info.images.length; ++i) {
-        result += "  <item id=\"" + info.images[i].id + "\" media-type=\"image/png\"" +
-            " href=\"images/" + info.images[i].file + "\"/>\n";
+        result += "  <item id=\"" + info.images[i].name + "\" media-type=\"" + info.images[i].type + "\"" +
+            " href=\"images/" + info.images[i].name + "\"/>\n";
     }
     result += "</manifest>\n";
     result += "<spine toc=\"navigation\">\n";
@@ -257,7 +364,7 @@ function getNavigationContent(info) {
     result += "    <meta name=\"dtb:maxPageNumber\" content=\"0\"/>\n";
     result += "  </head>\n";
     result += "  <docTitle>\n";
-    result += "    <text>" + escapeHtmlEntities(info.title) + "</text>\n";
+    result += "    <text>" + escapeHtmlEntities(info.title, true) + "</text>\n";
     result += "  </docTitle>\n";
     result += "  <navMap>\n";
     result += "    <navPoint id=\"toc\" playOrder=\"1\">\n";
@@ -269,7 +376,7 @@ function getNavigationContent(info) {
     for (let i = 0; i < info.chapters.length; ++i) {
         result += "    <navPoint id=\"" + info.chapters[i].id + "\" playOrder=\"" + (2 + i) + "\">\n";
         result += "      <navLabel>\n";
-        result += "        <text>" + escapeHtmlEntities(info.chapters[i].title) + "</text>\n";
+        result += "        <text>" + escapeHtmlEntities(info.chapters[i].title, true) + "</text>\n";
         result += "      </navLabel>\n";
         result += "      <content src=\"content/" + info.chapters[i].file + "\"/>\n";
         result += "    </navPoint>\n";
@@ -294,7 +401,7 @@ function getTocPageContent(info) {
     result += "    <ol class=\"toc-items\">\n";
     for (let i = 0; i < info.chapters.length; ++i) {
         result += "      <li><a href=\"" + info.chapters[i].file + "\">" +
-            escapeHtmlEntities(info.chapters[i].title) + "</a></li>\n";
+            escapeHtmlEntities(info.chapters[i].title, true) + "</a></li>\n";
     }
     result += "    </ol>\n";
     result += "  </body>\n";
@@ -303,53 +410,46 @@ function getTocPageContent(info) {
 }
 
 function getPageContent(info, payload) {
-    let result = "";
-    result += "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
-    result += "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.1//EN\"";
-    result += "                      \"http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd\">\n";
-    result += "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n";
-    result += "  <head profile=\"http://dublincore.org/documents/dcmi-terms/\">\n";
-    result += "    <meta http-equiv=\"Content-Type\" content=\"text/html;\" />\n";
-    result += "    <title>" + escapeHtmlEntities(info.title) + "</title>\n";
-    result += "    <link rel=\"stylesheet\" type=\"text/css\" href=\"../css/ebook.css\"/>\n";
-    result += "    <meta name=\"DCTERMS.title\" content=\"" + escapeHtmlEntities(info.title) + "\" />\n";
-    result += "    <meta name=\"DCTERMS.language\" content=\"en\" scheme=\"DCTERMS.RFC4646\" />\n";
-    result += "    <link rel=\"schema.DC\" href=\"http://purl.org/dc/elements/1.1/\" hreflang=\"en\" />\n";
-    result += "    <link rel=\"schema.DCTERMS\" href=\"http://purl.org/dc/terms/\" hreflang=\"en\" />\n";
-    result += "    <link rel=\"schema.DCTYPE\" href=\"http://purl.org/dc/dcmitype/\" hreflang=\"en\" />\n";
-    result += "    <link rel=\"schema.DCAM\" href=\"http://purl.org/dc/dcam/\" hreflang=\"en\" />\n";
-    result += "  </head>\n";
-    result += "  <body>\n";
+    let result = [];
 
-    payload = payload.split("\n");
-    for (let i = 0; i < payload.length; ++i) {
-	let line = payload[i].trim();
-	if (line.length > 0) {
-	    result += "    " + line + "\n";
-	}
-    }
+    result.push('<?xml version="1.0" encoding="utf-8"?>');
+    result.push('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"');
+    result.push('                      "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">');
+    result.push('<html xmlns="http://www.w3.org/1999/xhtml">');
+    result.push('  <head profile="http://dublincore.org/documents/dcmi-terms/">');
+    result.push('    <meta http-equiv="Content-Type" content="text/html;" />');
+    result.push('    <title>' + escapeHtmlEntities(info.title, true) + '</title>');
+    result.push('    <link rel="stylesheet" type="text/css" href="../css/ebook.css"/>');
+    result.push('    <meta name="DCTERMS.title" content="' + escapeHtmlEntities(info.title, true) + '" />');
+    result.push('    <meta name="DCTERMS.language" content="en" scheme="DCTERMS.RFC4646" />');
+    result.push('    <link rel="schema.DC" href="http://purl.org/dc/elements/1.1/" hreflang="en" />');
+    result.push('    <link rel="schema.DCTERMS" href="http://purl.org/dc/terms/" hreflang="en" />');
+    result.push('    <link rel="schema.DCTYPE" href="http://purl.org/dc/dcmitype/" hreflang="en" />');
+    result.push('    <link rel="schema.DCAM" href="http://purl.org/dc/dcam/" hreflang="en" />');
+    result.push('  </head>');
+    result.push('  <body>');
+    result = result.concat(payload);
+    result.push('  </body>');
+    result.push('</html>');
 
-    result += "  </body>\n";
-    result += "</html>\n";
-
-    return result;
+    return result.join('\n');
 }
 
 function getCssContent() {
-    let result = "";
+    let result = [];
 
-    result += "body {\n";
-    result += "  font-size: medium;\n";
-    result += "}\n";
+    result.push('body {');
+    result.push('  font-size: medium;');
+    result.push('}');
 
-    result += "img {\n";
-    result += "  max-width: 100%\n";
-    result += "}\n";
+    result.push('img.full {');
+    result.push('  max-width: 100%');
+    result.push('}');
 
-    result += "code, pre {\n";
-    result += "  white-space: pre-wrap;\n";
-    result += "  font-size: 75%;\n";
-    result += "}\n";
+    result.push('code, pre {');
+    result.push('  white-space: pre-wrap;');
+    result.push('  font-size: 75%;');
+    result.push('}');
 
-    return result;
+    return result.join('\n');
 }

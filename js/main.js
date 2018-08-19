@@ -1,7 +1,7 @@
 "use strict";
 
 let loadedMetadata,
-    ctrSavedPages, ctrSelectAll, ctrSelectNone, ctrDeleteSelected, ctrExportEpub;
+    ctrSavedPages, ctrSelectAll, ctrSelectNone, ctrDeleteSelected, ctrExportEpub, ctrExportRst;
 
 function padLeft(value, length, char) {
     value = "" + value;
@@ -143,7 +143,7 @@ function deleteSelected() {
     deleteItems(getSelected());
 }
 
-function exportEpub() {
+function loadPages(callback) {
     const exportIdList = getSelected();
     const exportKeyList = exportIdList.map(function(x) {
         return "data_" + x;
@@ -163,6 +163,28 @@ function exportEpub() {
             return;
         }
 
+        callback(exportIdList, data);
+    });
+}
+
+function saveFile(file, filename) {
+    file.generateAsync({type: "blob"}).then(function(content){
+        var url = window.URL.createObjectURL(content);
+        chrome.downloads.download({
+            url: url,
+            filename: filename,
+            saveAs: true,
+            conflictAction: 'prompt'
+        }, function() {
+            window.URL.revokeObjectURL(url);
+        });
+    }).catch(function(err){
+        console.log(err);
+    });
+}
+
+function exportEpub() {
+    loadPages(function (exportIdList, data) {
         let epubFile = new JSZip();
         epubFile.file("mimetype", "application/epub+zip");
 
@@ -184,66 +206,67 @@ function exportEpub() {
             images: []
         };
 
-        for (let i = 0; i < exportIdList.length; ++i) {
+        let saved = 0;
+        for (let i = 0, len = exportIdList.length; i < len; ++i) {
             let chapterId = "chapter_" + i;
             let entryInfo = loadedMetadata["info_" + exportIdList[i]];
             let entryHtml = data["data_" + exportIdList[i]];
 
-            let temp = document.createElement("div");
-            temp.innerHTML = entryHtml;
-
-            let imagesIds = [];
-            let doc = preparePage(temp, {
-                replaceImage: function(src){
-                    let imageData = src.substr(src.indexOf(',') + 1);
-                    let imageHash = new jsSHA("SHA-1", "TEXT");
-                    imageHash.update(imageData);
-                    let imageId = "img_" + i +"_" + imageHash.getHash("HEX");
-
-                    if (!imagesIds.includes(imageId))
-                    {
-                        imagesIds.push(imageId);
-
-                        info.images.push({
-                            id: imageId,
-                            file: imageId + ".png"
-                        });
-
-                        imagesFolder.file(imageId + ".png", imageData, {base64: true});
-                    }
-
-                    return "../images/" + imageId + ".png";
-                }});
-
             epubHash.update(entryInfo);
-            contentFolder.file(chapterId + ".xhtml", getPageContent(entryInfo, doc));
             info.chapters.push({
                 id: chapterId,
                 title: entryInfo.title,
                 file: chapterId + ".xhtml"
             });
-        }
-        info.id = epubHash.getHash("HEX");
 
-        oebpsFolder.file("content.opf", getEbookContent(info));
-        oebpsFolder.file("navigation.ncx", getNavigationContent(info));
-        contentFolder.file("toc.xhtml", getTocPageContent(info));
-        cssFolder.file("ebook.css", getCssContent());
+            prepareElement(entryHtml, x => {
+                const [doc, images] = prepareEpub(x);
+                contentFolder.file(chapterId + ".xhtml", getPageContent(entryInfo, doc));
+                for (let image in images) {
+                    info.images.push({ name: image, type: images[image].type });
+                    imagesFolder.file(image, images[image].data, {base64: true});
+                }
 
-        epubFile.generateAsync({type: "blob"}).then(function(content){
-            var url = window.URL.createObjectURL(content);
+                saved += 1;
+                if (saved == len) {
+                    info.id = epubHash.getHash("HEX");
 
-            chrome.downloads.download({
-                url: url,
-                filename: info.title.replace(/\s/g, "_") + ".epub",
-                saveAs: true,
-                conflictAction: 'prompt'
-            }, function() {
-                window.URL.revokeObjectURL(url);
+                    oebpsFolder.file("content.opf", getEbookContent(info));
+                    oebpsFolder.file("navigation.ncx", getNavigationContent(info));
+                    contentFolder.file("toc.xhtml", getTocPageContent(info));
+                    cssFolder.file("ebook.css", getCssContent());
+
+                    saveFile(epubFile, info.title.replace(/\s/g, "_") + ".epub");
+                }
             });
-        }).catch(function(err){
-            console.log(err);
-        });
+        }
+    });
+}
+
+function exportRst() {
+    loadPages(function (exportIdList, data) {
+        let zipFile = new JSZip();
+
+        let saved = 0;
+        for (let i = 0, len = exportIdList.length; i < len; ++i) {
+            let entryInfo = loadedMetadata["info_" + exportIdList[i]];
+            let pageId = "page_" + i;
+            let pageFolder = zipFile.folder(pageId);
+            let entryHtml = data["data_" + exportIdList[i]];
+
+            prepareElement(entryHtml, x => {
+                const [doc, images] = prepareRst(x);
+                pageFolder.file("index.rst", doc.join('\n'));
+                for (let image in images) {
+                    pageFolder.file(image, images[image].data, {base64: true});
+                }
+
+                saved += 1;
+                if (saved == len) {
+                    saveFile(zipFile, getBookId().replace(/\s/g, "_") + ".zip");
+                }
+            });
+        }
     });
 }
 
@@ -253,6 +276,7 @@ document.addEventListener('DOMContentLoaded', function() {
     ctrSelectNone = document.getElementById('select-none');
     ctrDeleteSelected = document.getElementById('delete-selected');
     ctrExportEpub = document.getElementById('export-epub');
+    ctrExportRst = document.getElementById('export-rst');
 
     ctrSavedPages.onclick = function(event) {
         let target = event.target;
@@ -287,6 +311,11 @@ document.addEventListener('DOMContentLoaded', function() {
     ctrExportEpub.onclick = function(event) {
         event.preventDefault();
         exportEpub();
+    }
+
+    ctrExportRst.onclick = function(event) {
+        event.preventDefault();
+        exportRst();
     }
 
     initialize();
